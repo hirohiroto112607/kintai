@@ -1,9 +1,9 @@
-# PostgreSQL Database Configuration
 # 勤怠管理システム - データベース設定
 
 ## データベース接続設定
 
 ### 環境変数での設定（推奨）
+
 以下の環境変数を設定してください：
 
 ```bash
@@ -13,6 +13,7 @@ export DB_PASSWORD="kintai_password"
 ```
 
 ### システムプロパティでの設定
+
 JVMオプションとして以下を設定できます：
 
 ```bash
@@ -24,12 +25,14 @@ JVMオプションとして以下を設定できます：
 ## PostgreSQLのセットアップ
 
 ### 1. PostgreSQLのインストール（macOS）
+
 ```bash
 brew install postgresql
 brew services start postgresql
 ```
 
 ### 2. データベースとユーザーの作成
+
 ```sql
 # PostgreSQLに管理者としてログイン
 psql postgres
@@ -51,6 +54,7 @@ GRANT CREATE ON SCHEMA public TO kintai_user;
 ```
 
 ### 3. スキーマの作成
+
 ```bash
 # kintaiデータベースにkintai_userとしてログイン
 psql -U kintai_user -d kintai
@@ -82,17 +86,20 @@ psql -U kintai_user -d kintai -c "SELECT username, role, enabled FROM users;"
 ### 接続エラーが発生する場合
 
 1. PostgreSQLが起動しているか確認
+
    ```bash
    brew services list | grep postgresql
    ```
 
 2. ユーザーとデータベースが存在するか確認
+
    ```bash
    psql postgres -c "\du"  # ユーザー一覧
    psql postgres -c "\l"   # データベース一覧
    ```
 
 3. 接続設定を確認
+
    ```bash
    echo $DB_URL
    echo $DB_USERNAME

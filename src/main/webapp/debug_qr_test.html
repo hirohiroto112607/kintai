@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRコード打刻テスト（デバッグ版）</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .test-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .test-section {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 5px 0;
+            font-size: 16px;
+        }
+
+        .debug-output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="title">QRコード打刻テスト（デバッグ版）</h1>
+        
+        <div id="status-message" class="status-message status-info">
+            テスト準備完了
+        </div>
+
+        <div class="test-section">
+            <h3>手動テスト（デバッグ用）</h3>
+            <p>ユーザーIDを直接入力してテストします：</p>
+            <input type="text" id="manual-userid" class="test-input" placeholder="ユーザーID（例: admin1）" value="admin1">
+            <button id="manual-test" class="btn">手動打刻テスト</button>
+        </div>
+
+        <div class="test-section">
+            <h3>AJAX通信デバッグ情報</h3>
+            <div id="debug-output" class="debug-output">
+                デバッグ情報がここに表示されます...
+            </div>
+            <button id="clear-debug" class="btn">デバッグ情報クリア</button>
+        </div>
+
+        <div class="test-section">
+            <h3>サーバーレスポンステスト</h3>
+            <button id="test-connection" class="btn">サーバー接続テスト</button>
+            <button id="test-session" class="btn">セッション状態確認</button>
+        </div>
+    </div>
+
+    <script>
+        let debugOutput = document.getElementById('debug-output');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugOutput.innerHTML += `[${timestamp}] ${message}\n`;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('status-message');
+            statusElement.textContent = message;
+            statusElement.className = 'status-message status-' + type;
+            statusElement.style.display = 'block';
+        }
+
+        // 手動テスト
+        document.getElementById('manual-test').addEventListener('click', function() {
+            const userId = document.getElementById('manual-userid').value.trim();
+            if (!userId) {
+                showStatus('ユーザーIDを入力してください', 'error');
+                return;
+            }
+
+            log(`手動テスト開始 - ユーザーID: ${userId}`);
+            performAttendanceTest(userId);
+        });
+
+        // デバッグ情報クリア
+        document.getElementById('clear-debug').addEventListener('click', function() {
+            debugOutput.innerHTML = 'デバッグ情報がここに表示されます...\n';
+        });
+
+        // サーバー接続テスト
+        document.getElementById('test-connection').addEventListener('click', function() {
+            log('サーバー接続テストを開始...');
+            
+            fetch('/kintai/qr', {
+                method: 'GET'
+            })
+            .then(response => {
+                log(`サーバー接続テスト - ステータス: ${response.status}`);
+                log(`サーバー接続テスト - Content-Type: ${response.headers.get('content-type')}`);
+                return response.text();
+            })
+            .then(text => {
+                log(`サーバー接続テスト - レスポンス長: ${text.length}`);
+                log(`サーバー接続テスト - レスポンス: ${text.substring(0, 200)}...`);
+                showStatus('サーバー接続成功', 'success');
+            })
+            .catch(error => {
+                log(`サーバー接続テスト - エラー: ${error.message}`);
+                showStatus('サーバー接続失敗: ' + error.message, 'error');
+            });
+        });
+
+        // セッション状態確認
+        document.getElementById('test-session').addEventListener('click', function() {
+            log('セッション状態確認を開始...');
+            
+            fetch('/kintai/user', {
+                method: 'GET'
+            })
+            .then(response => {
+                log(`セッション確認 - ステータス: ${response.status}`);
+                return response.text();
+            })
+            .then(text => {
+                log(`セッション確認 - レスポンス: ${text.substring(0, 300)}...`);
+                if (text.includes('login')) {
+                    showStatus('ログインが必要です', 'error');
+                } else {
+                    showStatus('セッション有効', 'success');
+                }
+            })
+            .catch(error => {
+                log(`セッション確認 - エラー: ${error.message}`);
+                showStatus('セッション確認失敗: ' + error.message, 'error');
+            });
+        });
+
+        // 打刻テスト実行
+        function performAttendanceTest(userId) {
+            showStatus('打刻処理中...', 'info');
+            
+            const formData = new FormData();
+            formData.append('action', 'user_id_scan');
+            formData.append('userId', userId);
+
+            log(`FormData作成 - action: user_id_scan, userId: ${userId}`);
+
+            fetch('/kintai/qr', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                log(`打刻テスト - ステータス: ${response.status}`);
+                log(`打刻テスト - Content-Type: ${response.headers.get('content-type')}`);
+                log(`打刻テスト - OK: ${response.ok}`);
+                
+                return response.text().then(text => {
+                    log(`打刻テスト - レスポンステキスト長: ${text.length}`);
+                    log(`打刻テスト - レスポンステキスト: "${text}"`);
+                    
+                    if (!text || text.trim() === '') {
+                        throw new Error('Empty response from server');
+                    }
+
+                    // Content-Typeチェック
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        log(`警告: Content-Typeがapplication/jsonではありません: ${contentType}`);
+                        log(`HTMLレスポンスの可能性: ${text.substring(0, 500)}`);
+                        throw new Error('Invalid content type: ' + contentType);
+                    }
+
+                    // JSONパース試行
+                    try {
+                        const data = JSON.parse(text);
+                        log(`JSON解析成功: ${JSON.stringify(data)}`);
+                        return data;
+                    } catch (parseError) {
+                        log(`JSON解析エラー: ${parseError.message}`);
+                        log(`解析対象テキスト: "${text}"`);
+                        throw new Error('JSON parse failed: ' + parseError.message);
+                    }
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    log(`打刻成功: ${data.message} (アクション: ${data.action})`);
+                    showStatus(data.message, 'success');
+                } else {
+                    log(`打刻失敗: ${data.error}`);
+                    showStatus(data.error, 'error');
+                }
+            })
+            .catch(error => {
+                log(`打刻テスト - エラー: ${error.message}`);
+                showStatus('打刻テスト失敗: ' + error.message, 'error');
+            });
+        }
+
+        // 初期化
+        log('デバッグページが読み込まれました');
+        showStatus('テスト準備完了', 'info');
+    </script>
+</body>
+</html>

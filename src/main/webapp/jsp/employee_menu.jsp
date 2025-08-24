@@ -27,6 +27,7 @@
             <input type="hidden" name="action" value="check_out">
             <input type="submit" value="退勤" class="button">
         </form>
+        <a href="<c:url value='/qr'/>" class="button" style="background-color: #28a745;">QRコード打刻</a>
     </div>
 
     <h2>あなたの勤怠履歴</h2>

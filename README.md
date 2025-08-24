@@ -22,6 +22,10 @@ http://localhost:8080/kintai
 - ✅ 出勤・退勤の記録
 - 📊 自分の勤怠履歴の閲覧
 - 🔐 セキュアなログイン・ログアウト
+- 📱 QRコード打刻機能
+  - 従来方式：出勤用・退勤用QRコード（5分間有効）
+  - 新方式：ユーザーIDQRコード（自動判定、有効期限なし）
+  - スマートフォンカメラによるQRスキャン対応
 
 ### 👨‍💼 管理者機能
 
@@ -40,6 +44,7 @@ http://localhost:8080/kintai
 - **PostgreSQL**: データベース
 - **HikariCP**: コネクションプール
 - **CSS**: レスポンシブなUI
+- **ZXing**: QRコード生成・読み取りライブラリ
 - **Maven**: ビルドツール
 - **Jetty**: 開発用サーバー
 
@@ -58,11 +63,13 @@ kintai/
 │   │   ├── LoginServlet.java      # ログイン処理
 │   │   ├── LogoutServlet.java     # ログアウト処理
 │   │   ├── AttendanceServlet.java # 勤怠管理
-│   │   └── UserServlet.java       # ユーザー管理
+│   │   ├── UserServlet.java       # ユーザー管理
+│   │   └── QRCodeServlet.java     # QRコード機能
 │   ├── filter/                    # フィルター
 │   │   └── AuthenticationFilter.java # 認証フィルター
 │   ├── util/                      # ユーティリティ
-│   │   └── DatabaseUtil.java     # データベース接続管理
+│   │   ├── DatabaseUtil.java     # データベース接続管理
+│   │   └── QRCodeUtil.java       # QRコード生成ユーティリティ
 │   └── listener/                  # リスナー
 │       └── DatabaseContextListener.java # DB接続プール管理
 ├── src/main/webapp/
@@ -70,7 +77,9 @@ kintai/
 │   │   ├── admin_menu.jsp         # 管理者画面
 │   │   ├── employee_menu.jsp      # 従業員画面
 │   │   ├── error.jsp              # エラー画面
-│   │   └── user_management.jsp    # ユーザー管理画面
+│   │   ├── user_management.jsp    # ユーザー管理画面
+│   │   ├── qr_menu.jsp            # QRコード生成画面
+│   │   └── qr_scanner.jsp         # QRスキャナー画面
 │   ├── WEB-INF/
 │   │   └── web.xml                # Web設定ファイル
 │   ├── login.jsp                  # ログイン画面
@@ -162,6 +171,10 @@ mvn clean package
 - **出勤記録**: 「出勤」ボタンをクリック
 - **退勤記録**: 「退勤」ボタンをクリック
 - **履歴確認**: 自分の勤怠履歴を表で確認
+- **QRコード打刻**: 
+  - QRコード生成ページでQRコードを作成
+  - スマートフォンでQRコードをスキャンして打刻
+  - ユーザーIDQRコードは現在の状況に応じて自動的に出勤・退勤を判定
 
 ### 管理者の操作
 

@@ -1,10 +1,12 @@
 
 package com.example.attendance.dao;
 
-import com.example.attendance.dto.Attendance;
-import com.example.attendance.util.DatabaseUtil;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -12,6 +14,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.example.attendance.dto.Attendance;
+import com.example.attendance.util.DatabaseUtil;
 
 /**
  * 勤怠データへのアクセスを担うオブジェクト(DAO)。
@@ -22,8 +27,9 @@ public class AttendanceDAO {
     /**
      * 出勤を記録します。
      * @param userId ユーザーID
+     * @return 成功した場合true、失敗した場合false
      */
-    public void checkIn(String userId) {
+    public boolean checkIn(String userId) {
         String sql = "INSERT INTO attendance (user_id, check_in_time) VALUES (?, ?)";
         
         try (Connection conn = DatabaseUtil.getConnection();
@@ -32,7 +38,8 @@ public class AttendanceDAO {
             stmt.setString(1, userId);
             stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
             
-            stmt.executeUpdate();
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to check in for user: " + userId, e);
         }
@@ -42,8 +49,9 @@ public class AttendanceDAO {
      * 退勤を記録します。
      * 指定されたユーザーの最新の未退勤レコードに退勤時刻を設定します。
      * @param userId ユーザーID
+     * @return 成功した場合true、失敗した場合false
      */
-    public void checkOut(String userId) {
+    public boolean checkOut(String userId) {
         String sql = "UPDATE attendance SET check_out_time = ? " +
                     "WHERE user_id = ? AND check_out_time IS NULL " +
                     "AND id = (SELECT id FROM attendance WHERE user_id = ? AND check_out_time IS NULL " +
@@ -56,10 +64,36 @@ public class AttendanceDAO {
             stmt.setString(2, userId);
             stmt.setString(3, userId);
             
-            stmt.executeUpdate();
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to check out for user: " + userId, e);
         }
+    }
+
+    /**
+     * 指定されたユーザーの最新勤怠状況を確認します。
+     * @param userId ユーザーID
+     * @return 出勤中の場合はtrue、未出勤または退勤済みの場合はfalse
+     */
+    public boolean isCurrentlyCheckedIn(String userId) {
+        String sql = "SELECT COUNT(*) FROM attendance WHERE user_id = ? AND check_out_time IS NULL";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, userId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to check attendance status for user: " + userId, e);
+        }
+        
+        return false;
     }
 
     /**
