@@ -1,8 +1,12 @@
 
 package com.example.attendance.controller;
 
+import java.io.IOException;
+
+import com.example.attendance.dao.DepartmentDAO;
 import com.example.attendance.dao.UserDAO;
 import com.example.attendance.dto.User;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -10,11 +14,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-import java.io.IOException;
-
 @WebServlet("/users")
 public class UserServlet extends HttpServlet {
     private final UserDAO userDAO = new UserDAO();
+    private final DepartmentDAO departmentDAO = new DepartmentDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -46,6 +49,7 @@ public class UserServlet extends HttpServlet {
         }
 
         req.setAttribute("users", userDAO.getAllUsers());
+        req.setAttribute("departments", departmentDAO.getEnabledDepartments());
         req.getRequestDispatcher("/jsp/user_management.jsp").forward(req, resp);
     }
 
@@ -98,7 +102,11 @@ public class UserServlet extends HttpServlet {
         }
         String password = req.getParameter("password");
         String role = req.getParameter("role");
-        User newUser = new User(username, UserDAO.hashPassword(password), role, true);
+        String departmentId = req.getParameter("departmentId");
+        if (departmentId != null && departmentId.trim().isEmpty()) {
+            departmentId = null;
+        }
+        User newUser = new User(username, UserDAO.hashPassword(password), role, departmentId, true);
         userDAO.addUser(newUser);
         session.setAttribute("successMessage", "ユーザー '" + username + "' を追加しました。");
     }
@@ -108,9 +116,22 @@ public class UserServlet extends HttpServlet {
         User existingUser = userDAO.findByUsername(username);
         if (existingUser != null) {
             String role = req.getParameter("role");
+            String departmentId = req.getParameter("departmentId");
+            if (departmentId != null && departmentId.trim().isEmpty()) {
+                departmentId = null;
+            }
             boolean enabled = "true".equals(req.getParameter("enabled"));
+            String password = req.getParameter("password");
+            
             existingUser.setRole(role);
+            existingUser.setDepartmentId(departmentId);
             existingUser.setEnabled(enabled);
+            
+            // パスワードが入力されている場合のみ更新
+            if (password != null && !password.trim().isEmpty()) {
+                existingUser.setPassword(UserDAO.hashPassword(password));
+            }
+            
             userDAO.updateUser(existingUser);
             session.setAttribute("successMessage", "ユーザー '" + username + "' の情報を更新しました。");
         }

@@ -16,6 +16,7 @@
     <div class="main-nav">
         <a href="<c:url value='/attendance'/>" class="button">勤怠履歴管理</a>
         <a href="<c:url value='/users'/>" class="button">ユーザー管理</a>
+        <a href="<c:url value='/departments'/>" class="button">部署管理</a>
         <a href="<c:url value='/qr'/>" class="button" style="background-color: #28a745;">QRコード打刻</a>
         <a href="<c:url value='/logout'/>" class="button secondary">ログアウト</a>
     </div>
@@ -45,13 +46,21 @@
             <option value="employee" ${userToEdit.role == 'employee' ? 'selected' : ''}>従業員</option>
             <option value="admin" ${userToEdit.role == 'admin' ? 'selected' : ''}>管理者</option>
         </select>
-
+        
+        <label for="departmentId">部署:</label>
+        <select id="departmentId" name="departmentId">
+            <option value="">未所属</option>
+            <c:forEach var="dept" items="${departments}">
+                <option value="<c:out value="${dept.departmentId}"/>" ${userToEdit.departmentId == dept.departmentId ? 'selected' : ''}>
+                    <c:out value="${dept.departmentName}"/>
+                </option>
+            </c:forEach>
+        </select>
+        
         <label for="enabled">アカウント:</label>
         <div>
             <input type="checkbox" id="enabled" name="enabled" value="true" ${(empty userToEdit or userToEdit.enabled) ? 'checked' : ''}> 有効
-        </div>
-
-        <div class="button-group" style="grid-column: 1 / 3;">
+        </div>        <div class="button-group" style="grid-column: 1 / 3;">
             <input type="submit" value="${not empty userToEdit ? '更新' : '追加'}" class="button">
         </div>
     </form>
@@ -59,13 +68,25 @@
     <h2>既存ユーザー</h2>
     <table>
         <thead>
-        <tr><th>ユーザーID</th><th>役割</th><th>状態</th><th>操作</th></tr>
+        <tr><th>ユーザーID</th><th>役割</th><th>部署</th><th>状態</th><th>操作</th></tr>
         </thead>
         <tbody>
         <c:forEach var="u" items="${users}">
             <tr>
                 <td><c:out value="${u.username}"/></td>
                 <td><c:out value="${u.role}"/></td>
+                <td>
+                    <c:choose>
+                        <c:when test="${not empty u.departmentId}">
+                            <c:forEach var="dept" items="${departments}">
+                                <c:if test="${dept.departmentId == u.departmentId}">
+                                    <c:out value="${dept.departmentName}"/>
+                                </c:if>
+                            </c:forEach>
+                        </c:when>
+                        <c:otherwise>未所属</c:otherwise>
+                    </c:choose>
+                </td>
                 <td>${u.enabled ? '有効' : '無効'}</td>
                 <td class="table-actions">
                     <a href="<c:url value='/users?action=edit&username=${u.username}'/>" class="button">編集</a>

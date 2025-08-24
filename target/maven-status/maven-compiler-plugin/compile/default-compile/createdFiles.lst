@@ -1,7 +1,9 @@
 com/example/attendance/util/DatabaseUtil.class
+com/example/attendance/dto/Department.class
 com/example/attendance/dto/Attendance.class
 com/example/attendance/dao/UserDAO.class
 com/example/attendance/controller/UserServlet.class
+com/example/attendance/controller/DepartmentServlet.class
 com/example/attendance/controller/LoginServlet.class
 com/example/attendance/dao/AttendanceDAO.class
 com/example/attendance/util/QRCodeUtil$TokenData.class
@@ -12,3 +14,4 @@ com/example/attendance/dto/User.class
 com/example/attendance/filter/AuthenticationFilter.class
 com/example/attendance/controller/AttendanceServlet.class
 com/example/attendance/listener/DatabaseContextListener.class
+com/example/attendance/dao/DepartmentDAO.class
