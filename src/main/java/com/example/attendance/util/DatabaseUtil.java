@@ -1,11 +1,18 @@
 package com.example.attendance.util;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-
-import javax.sql.DataSource;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.stream.Collectors;
+
+import javax.sql.DataSource;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 /**
  * データベース接続を管理するユーティリティクラス。
@@ -17,8 +24,37 @@ public class DatabaseUtil {
     static {
         try {
             initializeDataSource();
+            // 初期化時にスキーマを適用
+            try (Connection conn = dataSource.getConnection()) {
+                executeSchemaScript(conn);
+            }
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize database connection pool", e);
+        }
+    }
+
+    /**
+     * スキーマファイルを実行してデータベースを初期化します。
+     * @param conn データベース接続
+     */
+    public static void executeSchemaScript(Connection conn) {
+        try (InputStream is = DatabaseUtil.class.getClassLoader().getResourceAsStream("schema.sql")) {
+            if (is == null) {
+                System.err.println("schema.sql not found!");
+                return;
+            }
+            
+            String script = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
+
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(script);
+                System.out.println("Database schema has been successfully applied.");
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to execute schema.sql", e);
         }
     }
 
@@ -50,7 +86,7 @@ public class DatabaseUtil {
         config.setConnectionTimeout(30000);
         config.setIdleTimeout(600000);
         config.setMaxLifetime(1800000);
-
+        
         // PostgreSQL固有の設定
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");

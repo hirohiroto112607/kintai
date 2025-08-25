@@ -28,6 +28,7 @@
             <input type="submit" value="退勤" class="button">
         </form>
         <a href="<c:url value='/qr'/>" class="button" style="background-color: #28a745;">QRコード打刻</a>
+        <a href="<c:url value='/leave-requests'/>" class="button" style="background-color: #17a2b8;">休暇申請</a>
     </div>
 
     <h2>あなたの勤怠履歴</h2>

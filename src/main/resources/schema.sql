@@ -36,11 +36,31 @@ CREATE TABLE IF NOT EXISTS attendance (
     FOREIGN KEY (user_id) REFERENCES users(username) ON DELETE CASCADE
 );
 
+-- 休暇申請テーブル
+CREATE TABLE IF NOT EXISTS leave_requests (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    leave_type VARCHAR(20) NOT NULL CHECK (leave_type IN ('paid_leave', 'sick_leave', 'special_leave', 'other')),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    reason TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    approved_by VARCHAR(50),
+    approval_date TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(username) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by) REFERENCES users(username) ON DELETE SET NULL
+);
+
 -- インデックスの作成
 CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_check_in_time ON attendance(check_in_time);
 CREATE INDEX IF NOT EXISTS idx_attendance_user_id_check_in ON attendance(user_id, check_in_time);
 CREATE INDEX IF NOT EXISTS idx_users_department_id ON users(department_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_user_id ON leave_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_dates ON leave_requests(start_date, end_date);
 
 -- updated_atを自動更新するトリガー関数
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -65,6 +85,11 @@ CREATE TRIGGER update_users_updated_at
 DROP TRIGGER IF EXISTS update_attendance_updated_at ON attendance;
 CREATE TRIGGER update_attendance_updated_at 
     BEFORE UPDATE ON attendance 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_leave_requests_updated_at ON leave_requests;
+CREATE TRIGGER update_leave_requests_updated_at 
+    BEFORE UPDATE ON leave_requests 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- サンプルデータの挿入

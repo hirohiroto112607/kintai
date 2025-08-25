@@ -1,5 +1,6 @@
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/dao/DepartmentDAO.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/controller/AttendanceServlet.java
+/Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/controller/LeaveRequestServlet.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/dto/Department.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/dao/AttendanceDAO.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/util/DatabaseUtil.java
@@ -12,5 +13,6 @@
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/dto/User.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/filter/AuthenticationFilter.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/controller/UserServlet.java
+/Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/dao/LeaveRequestRepository.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/controller/QRCodeServlet.java
 /Users/hiroto/eclipse-workspace/kintai/src/main/java/com/example/attendance/controller/DepartmentServlet.java
