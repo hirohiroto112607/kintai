@@ -85,7 +85,7 @@ public class LeaveRequestServlet extends HttpServlet {
             repository.approveRequest(requestId, user.getUsername());
             session.setAttribute("successMessage", "申請を承認しました。");
         } catch (Exception e) {
-            session.setAttribute("errorMessage", "承認の処理中にエラーが発生しました。");
+            session.setAttribute("errorMessage", e + "承認の処理中にエラーが発生しました。");
         }
     }
 
@@ -112,33 +112,6 @@ public class LeaveRequestServlet extends HttpServlet {
         if (v != null) {
             req.setAttribute(name, v);
             session.removeAttribute(name);
-        }
-    }
-
-    // UIの休暇種別をDBのCHECK制約に合わせて正規化
-    private String normalizeLeaveType(String uiValue) {
-        if (uiValue == null) return "other";
-        switch (uiValue) {
-            case "annual":
-            case "paid_leave":
-                return "paid_leave";
-            case "sick":
-            case "sick_leave":
-                return "sick_leave";
-            case "personal":
-            case "special_leave":
-                return "special_leave";
-            case "maternity":
-            case "paternity":
-                return "other";
-            case "other":
-                return "other";
-            default:
-                // 既にDB想定の表記(小文字スネーク)ならそのまま、そうでなければother
-                if ("paid_leave".equals(uiValue) || "sick_leave".equals(uiValue) || "special_leave".equals(uiValue)) {
-                    return uiValue;
-                }
-                return "other";
         }
     }
 }

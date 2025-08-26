@@ -46,6 +46,7 @@ public class LeaveRequestRepository {
                     map.put("leaveType", rs.getString("leave_type"));
                     map.put("startDate", rs.getDate("start_date").toLocalDate());
                     map.put("endDate", rs.getDate("end_date").toLocalDate());
+                    map.put("daysCount", getDaysCount(rs.getDate("start_date").toLocalDate(), rs.getDate("end_date").toLocalDate()));
                     map.put("reason", rs.getString("reason"));
                     map.put("status", rs.getString("status"));
                     map.put("approvedBy", rs.getString("approved_by"));
@@ -84,6 +85,7 @@ public class LeaveRequestRepository {
                 map.put("leaveType", rs.getString("leave_type"));
                 map.put("startDate", rs.getDate("start_date").toLocalDate());
                 map.put("endDate", rs.getDate("end_date").toLocalDate());
+                map.put("daysCount", getDaysCount(rs.getDate("start_date").toLocalDate(), rs.getDate("end_date").toLocalDate()));
                 map.put("reason", rs.getString("reason"));
                 map.put("status", rs.getString("status"));
                 map.put("approvedBy", rs.getString("approved_by"));
@@ -121,6 +123,7 @@ public class LeaveRequestRepository {
                 map.put("leaveType", rs.getString("leave_type"));
                 map.put("startDate", rs.getDate("start_date").toLocalDate());
                 map.put("endDate", rs.getDate("end_date").toLocalDate());
+                map.put("daysCount", getDaysCount(rs.getDate("start_date").toLocalDate(), rs.getDate("end_date").toLocalDate()));
                 map.put("reason", rs.getString("reason"));
                 map.put("status", rs.getString("status"));
                 map.put("approvedBy", rs.getString("approved_by"));
@@ -142,19 +145,20 @@ public class LeaveRequestRepository {
     }
 
     public boolean approveRequest(int id, String approverUserId) {
-        String sql = "UPDATE leave_requests SET status = 'approved', approver_user_id = ?, reviewed_at = now() WHERE id = ?";
+        String sql = "UPDATE leave_requests SET status = 'approved', approved_by = ?, approval_date = now() WHERE id = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, approverUserId);
             stmt.setInt(2, id);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
+            System.err.println("Error approving leave request: " + e.getMessage());
             throw new RuntimeException("Failed to approve leave request", e);
         }
     }
 
     public boolean rejectRequest(int id, String approverUserId, String reason) {
-        String sql = "UPDATE leave_requests SET status = 'rejected', approver_user_id = ?, reviewed_at = now(), rejection_reason = ? WHERE id = ?";
+        String sql = "UPDATE leave_requests SET status = 'rejected', approved_by = ?, approval_date = now(), rejection_reason = ? WHERE id = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, approverUserId);
@@ -177,14 +181,15 @@ public class LeaveRequestRepository {
         LocalDate end = rs.getDate("end_date").toLocalDate();
         m.put("startDate", start);
         m.put("endDate", end);
+        m.put("daysCount", getDaysCount(start, end));
         m.put("reason", rs.getString("reason"));
         String status = rs.getString("status");
         m.put("status", status);
         m.put("pending", "pending".equalsIgnoreCase(status));
         m.put("approved", "approved".equalsIgnoreCase(status));
         m.put("rejected", "rejected".equalsIgnoreCase(status));
-        m.put("appliedAt", rs.getTimestamp("applied_at").toLocalDateTime());
-        Timestamp reviewedAt = rs.getTimestamp("reviewed_at");
+        m.put("appliedAt", rs.getTimestamp("created_at").toLocalDateTime());
+        Timestamp reviewedAt = rs.getTimestamp("approval_date");
         if (reviewedAt != null) m.put("reviewedAt", reviewedAt.toLocalDateTime());
         m.put("rejectionReason", rs.getString("rejection_reason"));
         // inclusive days count
@@ -238,5 +243,10 @@ public class LeaveRequestRepository {
             default:
                 return "other";
         }
+    }
+
+    // Add this method to calculate the number of days between two dates (inclusive)
+    private int getDaysCount(LocalDate start, LocalDate end) {
+        return (int) java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
     }
 }

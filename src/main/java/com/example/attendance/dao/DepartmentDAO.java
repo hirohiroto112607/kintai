@@ -172,7 +172,7 @@ class LeaveRequestDAO {
      * 新しい休暇申請を追加します。
      */
     public boolean addLeaveRequest(Object leaveRequest) {
-        String sql = "INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, reason, status, applied_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, reason, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
@@ -219,7 +219,7 @@ class LeaveRequestDAO {
      */
     public List<Object> findAllRequests() {
         List<Object> requests = new ArrayList<>();
-        String sql = "SELECT * FROM leave_requests ORDER BY applied_at DESC";
+        String sql = "SELECT * FROM leave_requests ORDER BY created_at DESC";
         
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
@@ -239,7 +239,7 @@ class LeaveRequestDAO {
      */
     public List<Object> findPendingRequests() {
         List<Object> requests = new ArrayList<>();
-        String sql = "SELECT * FROM leave_requests WHERE status = 'PENDING' ORDER BY applied_at ASC";
+        String sql = "SELECT * FROM leave_requests WHERE status = 'PENDING' ORDER BY created_at ASC";
         
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
@@ -258,7 +258,7 @@ class LeaveRequestDAO {
      * 休暇申請を承認します。
      */
     public boolean approveRequest(Integer requestId, String approverUserId) {
-        String sql = "UPDATE leave_requests SET status = 'APPROVED', approver_user_id = ?, reviewed_at = ? WHERE id = ?";
+        String sql = "UPDATE leave_requests SET status = 'APPROVED', approved_by = ?, approval_date = ? WHERE id = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
@@ -276,7 +276,7 @@ class LeaveRequestDAO {
      * 休暇申請を却下します。
      */
     public boolean rejectRequest(Integer requestId, String approverUserId, String rejectionReason) {
-        String sql = "UPDATE leave_requests SET status = 'REJECTED', approver_user_id = ?, reviewed_at = ?, rejection_reason = ? WHERE id = ?";
+        String sql = "UPDATE leave_requests SET status = 'REJECTED', approved_by = ?, approval_date = ?, rejection_reason = ? WHERE id = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
@@ -325,10 +325,10 @@ class LeaveRequestDAO {
         request.put("endDate", rs.getDate("end_date").toLocalDate());
         request.put("reason", rs.getString("reason"));
         request.put("status", rs.getString("status"));
-        request.put("approverUserId", rs.getString("approver_user_id"));
-        request.put("appliedAt", rs.getTimestamp("applied_at").toLocalDateTime());
+        request.put("approverUserId", rs.getString("approved_by"));
+        request.put("appliedAt", rs.getTimestamp("created_at").toLocalDateTime());
         
-        java.sql.Timestamp reviewedAtTs = rs.getTimestamp("reviewed_at");
+        java.sql.Timestamp reviewedAtTs = rs.getTimestamp("approval_date");
         if (reviewedAtTs != null) {
             request.put("reviewedAt", reviewedAtTs.toLocalDateTime());
         }
