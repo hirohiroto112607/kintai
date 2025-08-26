@@ -55,7 +55,7 @@
         <c:forEach var="request" items="${pendingRequests}">
             <tr>
                 <td><c:out value="${request.userId}"/></td>
-                <td><fmt:formatDate value="${request.appliedAt}" pattern="yyyy-MM-dd"/></td>
+                <td>${request.appliedAt.toString().substring(0, 10)}</td>
                 <td>
                     <c:choose>
                         <c:when test="${request.leaveType == 'annual'}">年次有給休暇</c:when>
@@ -67,8 +67,7 @@
                     </c:choose>
                 </td>
                 <td>
-                    <fmt:formatDate value="${request.startDate}" pattern="yyyy-MM-dd"/> 〜
-                    <fmt:formatDate value="${request.endDate}" pattern="yyyy-MM-dd"/>
+                    ${request.startDate} 〜 ${request.endDate}
                 </td>
                 <td><c:out value="${request.daysCount}"/>日</td>
                 <td><c:out value="${request.reason}"/></td>
@@ -107,7 +106,7 @@
         <c:forEach var="request" items="${allRequests}">
             <tr>
                 <td><c:out value="${request.userId}"/></td>
-                <td><fmt:formatDate value="${request.appliedAt}" pattern="yyyy-MM-dd"/></td>
+                <td>${request.appliedAt.toString().substring(0, 10)}</td>
                 <td>
                     <c:choose>
                         <c:when test="${request.leaveType == 'annual'}">年次有給休暇</c:when>
@@ -119,8 +118,7 @@
                     </c:choose>
                 </td>
                 <td>
-                    <fmt:formatDate value="${request.startDate}" pattern="yyyy-MM-dd"/> 〜
-                    <fmt:formatDate value="${request.endDate}" pattern="yyyy-MM-dd"/>
+                    ${request.startDate} 〜 ${request.endDate}
                 </td>
                 <td>
                     <c:choose>
@@ -133,7 +131,7 @@
                 <td><c:out value="${request.approverUserId}"/></td>
                 <td>
                     <c:if test="${request.reviewedAt != null}">
-                        <fmt:formatDate value="${request.reviewedAt}" pattern="yyyy-MM-dd"/>
+                        ${request.reviewedAt.toString().substring(0, 10)}
                     </c:if>
                 </td>
             </tr>

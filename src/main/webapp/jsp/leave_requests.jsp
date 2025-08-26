@@ -47,7 +47,7 @@
         <input type="date" id="endDate" name="endDate" required>
 
         <label for="reason">理由:</label>
-        <textarea id="reason" name="reason" rows="3" required></textarea>
+        <textarea id="reason" name="reason" rows="3"></textarea>
 
         <div class="button-group">
             <input type="submit" value="申請" class="button">
@@ -69,7 +69,7 @@
         <tbody>
         <c:forEach var="request" items="${leaveRequests}">
             <tr>
-                <td><fmt:formatDate value="${request.appliedAt}" pattern="yyyy-MM-dd"/></td>
+                <td>${request.appliedAt.toString().substring(0, 10)}</td>
                 <td>
                     <c:choose>
                         <c:when test="${request.leaveType == 'annual'}">年次有給休暇</c:when>
@@ -81,8 +81,7 @@
                     </c:choose>
                 </td>
                 <td>
-                    <fmt:formatDate value="${request.startDate}" pattern="yyyy-MM-dd"/> 〜
-                    <fmt:formatDate value="${request.endDate}" pattern="yyyy-MM-dd"/>
+                    ${request.startDate} 〜 ${request.endDate}
                 </td>
                 <td><c:out value="${request.daysCount}"/>日</td>
                 <td>
