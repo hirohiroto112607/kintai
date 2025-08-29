@@ -1,4 +1,3 @@
-
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -15,12 +14,8 @@
     <p>ようこそ, <c:out value="${user.username}"/>さん (管理者)</p>
 
     <div class="main-nav">
-        <a href="<c:url value='/attendance'/>" class="button">勤怠履歴管理</a>
-        <a href="<c:url value='/users'/>" class="button">ユーザー管理</a>
-        <a href="<c:url value='/departments'/>" class="button">部署管理</a>
-        <a href="<c:url value='/leave-requests'/>" class="button" style="background-color: #17a2b8;">休暇申請管理</a>
-        <a href="<c:url value='/qr'/>" class="button" style="background-color: #28a745;">QRコード打刻</a>
-        <a href="<c:url value='/logout'/>" class="button secondary">ログアウト</a>
+    <jsp:include page="admin_nav.jsp" flush="true" />
+
     </div>
 
     <c:if test="${not empty successMessage}">

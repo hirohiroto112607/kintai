@@ -18,19 +18,7 @@
         <p class="success-message"><c:out value="${successMessage}"/></p>
     </c:if>
 
-    <div class="button-group">
-        <form action="<c:url value='/attendance'/>" method="post" style="display:inline;">
-            <input type="hidden" name="action" value="check_in">
-            <input type="submit" value="出勤" class="button">
-        </form>
-        <form action="<c:url value='/attendance'/>" method="post" style="display:inline;">
-            <input type="hidden" name="action" value="check_out">
-            <input type="submit" value="退勤" class="button">
-        </form>
-        <a href="<c:url value='/qr'/>" class="button" style="background-color: #28a745;">QRコード打刻</a>
-        <a href="<c:url value='/leave-requests'/>" class="button" style="background-color: #17a2b8;">休暇申請</a>
-        <a href="<c:url value='/passkey_register.jsp'/>" class="button">パスキーを登録</a>
-    </div>
+    <jsp:include page="employee_nav.jsp" flush="true" />
 
     <h2>あなたの勤怠履歴</h2>
     <table>

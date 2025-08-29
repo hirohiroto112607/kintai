@@ -25,10 +25,10 @@
 <body>
 <div class="container">
     <h1>休暇申請管理</h1>
+    <p>ようこそ, <c:out value="${user.username}"/>さん (管理者)</p>
 
     <div class="main-nav">
-        <a href="<c:url value='/attendance'/>" class="button">管理者メニューに戻る</a>
-        <a href="<c:url value='/logout'/>" class="button secondary">ログアウト</a>
+     <jsp:include page="admin_nav.jsp" flush="true" />
     </div>
 
     <c:if test="${not empty successMessage}">
