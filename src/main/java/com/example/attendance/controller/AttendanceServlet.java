@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.example.attendance.dao.AttendanceDAO;
+import com.example.attendance.dao.UserDAO;
 import com.example.attendance.dto.Attendance;
 import com.example.attendance.dto.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -276,22 +277,65 @@ public class AttendanceServlet extends HttpServlet {
         resp.setContentType("application/json; charset=UTF-8");
         
         try {
-            String username = user.getUsername();
+            String cardId = req.getParameter("cardId");
+            String targetUsername = null;
+            
+            // cardId が渡された場合は管理者端末からの社員証打刻を想定
+            if (cardId != null && !cardId.isEmpty()) {
+                // 管理者権限のチェック
+                if (user == null || user.getRole() == null || !"admin".equalsIgnoreCase(user.getRole())) {
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    ObjectMapper mapper = new ObjectMapper();
+                    Map<String, Object> response = Map.of(
+                        "success", false,
+                        "error", "管理者権限が必要です"
+                    );
+                    resp.getWriter().write(mapper.writeValueAsString(response));
+                    return;
+                }
+                
+                // cardId は users.username に対応している想定なので照合する
+                UserDAO userDAO = new UserDAO();
+                User targetUser = userDAO.findByUsername(cardId);
+                if (targetUser == null) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    Map<String, Object> response = Map.of(
+                        "success", false,
+                        "error", "指定された社員が見つかりません: " + cardId
+                    );
+                    resp.getWriter().write(mapper.writeValueAsString(response));
+                    return;
+                }
+                targetUsername = targetUser.getUsername();
+            } else {
+                // cardId がない場合は従来の端末ログインユーザーを対象にする
+                if (user == null) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    Map<String, Object> response = Map.of(
+                        "success", false,
+                        "error", "ログイン情報が取得できません"
+                    );
+                    resp.getWriter().write(mapper.writeValueAsString(response));
+                    return;
+                }
+                targetUsername = user.getUsername();
+            }
             
             // 出勤・退勤の自動判定
-            boolean isCheckIn = shouldCheckIn(username);
+            boolean isCheckIn = shouldCheckIn(targetUsername);
             
             if (isCheckIn) {
-                attendanceDAO.checkIn(username);
+                attendanceDAO.checkIn(targetUsername);
             } else {
-                attendanceDAO.checkOut(username);
+                attendanceDAO.checkOut(targetUsername);
             }
             
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> response = Map.of(
                 "success", true,
                 "action", isCheckIn ? "check_in" : "check_out",
-                "timestamp", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                "timestamp", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                "targetUsername", targetUsername
             );
             
             resp.getWriter().write(mapper.writeValueAsString(response));

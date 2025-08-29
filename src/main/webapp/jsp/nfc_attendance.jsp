@@ -171,7 +171,7 @@
         <h3>NFC勤怠打刻</h3>
         <div id="nfcStatus" class="nfc-status" style="display: none;"></div>
         
-        <button onclick="startNFCAttendance()" class="button nfc-action-button" id="nfcButton">
+        <button onclick="toggleNFCAttendance()" class="button nfc-action-button" id="nfcButton">
             NFCカードで打刻
         </button>
         
@@ -191,9 +191,14 @@
 </div>
 
 <script>
-// 会社用の固有識別子
-const COMPANY_CARD_ID = "KINTAI_ATTENDANCE_CARD_2024";
-const currentUser = '<c:out value="${user.username}"/>';
+ // 会社用の固有識別子
+ const COMPANY_CARD_ID = "KINTAI_ATTENDANCE_CARD_2024"; // 共有カード用識別子（既存の挙動を維持）
+ // 管理者端末上にログインしているユーザー（端末のセッション）
+ const currentUser = '<c:out value="${user.username}"/>';
+ const currentRole = '<c:out value="${user.role}"/>';
+ 
+ // ここでは「カードに書かれたテキスト」が DB の users.username と一致する想定です。
+ // 共有カード（JSON 内に cardId が COMPANY_CARD_ID）と社員証（plain text の username）の両方を扱います。
 
 // WebNFC APIの対応チェック
 function checkNFCSupport() {
@@ -266,81 +271,145 @@ function updateStatusDisplay(status, lastActivity) {
 }
 
 // NFC勤怠打刻開始
-async function startNFCAttendance() {
-    if (!checkNFCSupport()) {
-        return;
-    }
-    
-    const button = document.getElementById('nfcButton');
-    const originalText = button.textContent;
-    
-    try {
-        // ボタンを無効化してローディング表示
-        button.disabled = true;
-        button.innerHTML = '<span class="loading-spinner"></span> NFCカードをタッチしてください...';
-        
-        showStatus('勤怠用NFCカードをタッチしてください...', 'info');
-        
-        const ndef = new NDEFReader();
-        await ndef.scan();
-        
-        ndef.addEventListener("readingerror", () => {
-            showStatus('NFCカードの読み取りに失敗しました。', 'error');
-            resetButton(button, originalText);
-        });
-        
-        ndef.addEventListener("reading", async ({ message, serialNumber }) => {
-            console.log('NFC読み取り成功:', message);
-            
-            // カードの検証
-            let isValidCard = false;
-            for (const record of message.records) {
-                if (record.recordType === "text") {
-                    const textDecoder = new TextDecoder(record.encoding);
-                    const text = textDecoder.decode(record.data);
-                    try {
-                        const cardData = JSON.parse(text);
-                        if (cardData.cardId === COMPANY_CARD_ID) {
-                            isValidCard = true;
-                            break;
-                        }
-                    } catch (e) {
-                        // JSONでない場合は無効
-                    }
-                }
-            }
-            
-            if (!isValidCard) {
-                showStatus('これは勤怠用カードではありません。正しいカードを使用してください。', 'error');
-                resetButton(button, originalText);
-                return;
-            }
-            
-            // 勤怠打刻処理
-            await processAttendance();
-            resetButton(button, originalText);
-        });
-        
-    } catch (error) {
-        console.error('NFC勤怠打刻エラー:', error);
-        resetButton(button, originalText);
-        
-        if (error.name === 'NotAllowedError') {
-            showStatus('NFC機能の使用が許可されていません。ブラウザの設定を確認してください。', 'error');
-        } else {
-            showStatus('エラー: ' + error.message, 'error');
-        }
+let ndefReader = null;
+let ndefController = null;
+let scanning = false;
+let lastProcessedId = null;
+let lastProcessedAt = 0;
+const DEBOUNCE_MS = 2000; // 同一カードの連続読み取りを防ぐ間隔(ms)
+
+function toggleNFCAttendance() {
+    if (scanning) {
+        stopScanning();
+    } else {
+        startScanning();
     }
 }
 
+async function startScanning() {
+    if (!checkNFCSupport()) return;
+
+    const button = document.getElementById('nfcButton');
+    button.disabled = false;
+    button.innerHTML = '停止';
+    showStatus('NFCスキャンを開始しました。カードをかざしてください...', 'info');
+
+    try {
+        ndefController = new AbortController();
+        ndefReader = new NDEFReader();
+        await ndefReader.scan({ signal: ndefController.signal });
+
+        ndefReader.addEventListener('readingerror', (evt) => {
+            console.error('NFC読み取りエラー', evt);
+            showStatus('NFCカードの読み取りに失敗しました。', 'error');
+        });
+
+        ndefReader.addEventListener('reading', async (event) => {
+            try {
+                const message = event.message;
+                console.log('NFC読み取り:', message);
+
+                // 抽出処理（共有カード(JSON) or 社員証(plain text username)）
+                let detectedCompanyCard = false;
+                let detectedEmployeeId = null;
+                let seenIdForDebounce = null;
+
+                for (const record of message.records) {
+                    if (record.recordType === 'text') {
+                        const textDecoder = new TextDecoder(record.encoding || 'utf-8');
+                        const text = textDecoder.decode(record.data);
+                        try {
+                            const cardData = JSON.parse(text);
+                            if (cardData.cardId === COMPANY_CARD_ID) {
+                                detectedCompanyCard = true;
+                                seenIdForDebounce = COMPANY_CARD_ID;
+                                break;
+                            }
+                        } catch (e) {
+                            const trimmed = (text || '').trim();
+                            if (trimmed.length > 0) {
+                                detectedEmployeeId = trimmed;
+                                seenIdForDebounce = trimmed;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // デバウンス: 同一カードの連続処理を回避
+                const now = Date.now();
+                if (seenIdForDebounce) {
+                    if (lastProcessedId === seenIdForDebounce && (now - lastProcessedAt) < DEBOUNCE_MS) {
+                        console.log('短時間で再読み取りされたためスキップ:', seenIdForDebounce);
+                        return;
+                    }
+                    lastProcessedId = seenIdForDebounce;
+                    lastProcessedAt = now;
+                }
+
+                if (detectedCompanyCard) {
+                    // 共有カードフロー: 現在ログイン中のユーザーで打刻
+                    showStatus('共有カード検出: 管理者端末ログインユーザーで打刻します...', 'info');
+                    await processAttendance();
+                    return;
+                }
+
+                if (detectedEmployeeId) {
+                    // 社員証フロー: 指定ユーザーを管理者端末から打刻
+                    showStatus('社員証を検出しました: ' + detectedEmployeeId + ' — 打刻処理中...', 'info');
+                    await processAttendance(detectedEmployeeId);
+                    return;
+                }
+
+                showStatus('これは勤怠用カードではありません。正しいカードを使用してください。', 'error');
+
+            } catch (err) {
+                console.error('reading handler error:', err);
+                showStatus('読み取り処理中にエラーが発生しました: ' + err.message, 'error');
+            }
+        });
+
+        scanning = true;
+    } catch (err) {
+        console.error('NFCスキャン開始エラー:', err);
+        showStatus('NFCスキャンを開始できませんでした: ' + (err.message || err), 'error');
+        // ボタンを元に戻す
+        document.getElementById('nfcButton').textContent = 'NFCカードで打刻';
+        scanning = false;
+        ndefReader = null;
+        ndefController = null;
+    }
+}
+
+function stopScanning() {
+    if (ndefController) {
+        try {
+            ndefController.abort();
+        } catch (e) {
+            console.warn('Abort error', e);
+        }
+    }
+    ndefReader = null;
+    ndefController = null;
+    scanning = false;
+    document.getElementById('nfcButton').textContent = 'NFCカードで打刻';
+    showStatus('NFCスキャンを停止しました', 'warning');
+}
+
  // 勤怠打刻処理
-async function processAttendance() {
+ // 引数 cardId を渡すと管理者端末からそのユーザーを打刻する（社員証フロー）。
+ // 引数を渡さない場合は従来の端末ログインユーザーで打刻（共有カードや個人端末想定）。
+async function processAttendance(cardId) {
     try {
         showStatus('勤怠を記録中...', 'info');
         
         // セッションを送るため credentials を追加、ボディは URLSearchParams を使用
         const body = new URLSearchParams();
-        body.append('username', currentUser);
+        if (cardId && cardId.length > 0) {
+            body.append('cardId', cardId);
+        } else {
+            body.append('username', currentUser);
+        }
         
         const response = await fetch('${pageContext.request.contextPath}/attendance?action=nfc_attendance', {
             method: 'POST',
@@ -375,7 +444,12 @@ async function processAttendance() {
             const resultMessage = document.getElementById('resultMessage');
             const resultTime = document.getElementById('resultTime');
             
-            resultMessage.textContent = data.action === 'check_in' ? '出勤を記録しました' : '退勤を記録しました';
+            // 管理者が打刻した場合は対象ユーザー名も表示
+            if (data.targetUsername) {
+                resultMessage.textContent = (data.action === 'check_in' ? '出勤を記録しました: ' : '退勤を記録しました: ') + data.targetUsername;
+            } else {
+                resultMessage.textContent = data.action === 'check_in' ? '出勤を記録しました' : '退勤を記録しました';
+            }
             resultTime.textContent = '記録時刻: ' + data.timestamp;
             resultDiv.style.display = 'block';
             
@@ -399,11 +473,20 @@ function resetButton(button, originalText) {
     button.textContent = originalText;
 }
 
-// ページ読み込み時の初期化
+ // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
     // WebNFCサポートチェック
     if (!checkNFCSupport()) {
         document.getElementById('nfcButton').disabled = true;
+    } else {
+        // 管理者端末でログイン中なら自動で継続スキャンを開始
+        try {
+            if (currentRole && String(currentRole).toLowerCase() === 'admin') {
+                startScanning();
+            }
+        } catch (e) {
+            console.warn('自動スキャン開始に失敗しました:', e);
+        }
     }
     
     // 現在の勤務状況を取得
