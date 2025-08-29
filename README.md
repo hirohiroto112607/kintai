@@ -2,23 +2,14 @@
 
 # 勤怠管理システム
 
-現在、勤怠管理システムのコンパイル修正を行っています。
+Javaベースの包括的な勤怠管理システムです。従業員の出退勤時刻を記録し、管理者が勤怠データを管理できます。WebAuthn（パスキー）を使用したパスワードレス認証に対応しています。
 
-## ⚠️ 開発中の機能（一時無効化）
+## ✨ 最新機能
 
-- **Passkey認証**: WebAuthn4J APIの変更により一時的に無効化されています
-  - PasskeyAuthenticationStartServlet
-  - PasskeyRegistrationStartServlet
-  - PasskeyAuthenticationFinishServlet
-  - PasskeyRegistrationFinishServlet
-  - AuthenticatorDAO
-  - Authenticator.java
-
-基本的な勤怠管理機能（ユーザー管理、出退勤、QRコード、休暇申請）は正常に動作します。
-
----
-
-Javaベースの勤怠管理システムです。従業員の出退勤時刻を記録し、管理者が勤怠データを管理できます。
+- **🔐 パスキー認証**: WebAuthn（パスキー）を使用したセキュアなパスワードレス認証
+- **📱 多様な打刻方法**: 従来のWeb画面打刻に加え、QRコードスキャンによる打刻に対応
+- **🎯 インテリジェント出退勤判定**: ユーザーの現在の状況に応じて自動的に出勤・退勤を判定
+- **💼 包括的な管理機能**: 勤怠データの管理、ユーザー管理、休暇申請管理を統合
 
 ## 🚀 クイックスタート
 
@@ -40,7 +31,11 @@ http://localhost:8080/kintai
 - ✅ 出勤・退勤の記録
 - 📊 自分の勤怠履歴の閲覧
 - 🔐 セキュアなログイン・ログアウト
-- 📱 QRコード打刻機能
+- � パスキー認証ログイン
+  - WebAuthn準拠のパスワードレス認証
+  - 生体認証またはPINでの簡単ログイン
+  - パスキー登録・管理機能
+- � QRコード打刻機能
   - 従来方式：出勤用・退勤用QRコード（5分間有効）
   - 新方式：ユーザーIDQRコード（自動判定、有効期限なし）
   - スマートフォンカメラによるQRスキャン対応
@@ -52,17 +47,23 @@ http://localhost:8080/kintai
 - ✏️ 勤怠記録の手動追加・削除
 - 📄 CSVエクスポート機能
 - 👥 ユーザー管理（追加、編集、削除、パスワードリセット）
+- 🏢 部署管理（部署の追加・編集・無効化）
+- 🏖️ 休暇申請管理（承認・却下処理）
+- 🏢 部署管理（部署の追加・編集・無効化）
+- 🏖️ 休暇申請管理（承認・却下処理）
 
 ## 🛠️ 技術スタック
 
 - **Java**: 17+
 - **Jakarta EE**: Servlet API 6.0
 - **JSP**: ビューテンプレート
-- **JSTL**: JSPタグライブラリ  
+- **JSTL**: JSPタグライブラリ
 - **PostgreSQL**: データベース
 - **HikariCP**: コネクションプール
 - **CSS**: レスポンシブなUI
+- **WebAuthn4J**: パスキー認証ライブラリ
 - **ZXing**: QRコード生成・読み取りライブラリ
+- **Jackson**: JSON処理
 - **Maven**: ビルドツール
 - **Jetty**: 開発用サーバー
 
@@ -73,16 +74,26 @@ kintai/
 ├── src/main/java/com/example/attendance/
 │   ├── dto/                       # データ転送オブジェクト
 │   │   ├── Attendance.java        # 勤怠情報
-│   │   └── User.java              # ユーザー情報
+│   │   ├── User.java              # ユーザー情報
+│   │   ├── Department.java        # 部署情報
+│   │   ├── LeaveRequest.java      # 休暇申請情報
+│   │   └── Authenticator.java     # パスキー認証器情報
 │   ├── dao/                       # データアクセスオブジェクト
 │   │   ├── AttendanceDAO.java     # 勤怠データ操作（PostgreSQL対応）
-│   │   └── UserDAO.java           # ユーザーデータ操作（PostgreSQL対応）
+│   │   ├── UserDAO.java           # ユーザーデータ操作（PostgreSQL対応）
+│   │   ├── DepartmentDAO.java     # 部署データ操作
+│   │   ├── LeaveRequestDAO.java   # 休暇申請データ操作
+│   │   └── AuthenticatorDAO.java  # パスキー認証器データ操作
 │   ├── controller/                # サーブレット（コントローラー）
 │   │   ├── LoginServlet.java      # ログイン処理
 │   │   ├── LogoutServlet.java     # ログアウト処理
 │   │   ├── AttendanceServlet.java # 勤怠管理
 │   │   ├── UserServlet.java       # ユーザー管理
-│   │   └── QRCodeServlet.java     # QRコード機能
+│   │   ├── QRCodeServlet.java     # QRコード機能
+│   │   ├── PasskeyAuthenticationStartServlet.java   # パスキー認証開始
+│   │   ├── PasskeyAuthenticationFinishServlet.java  # パスキー認証完了
+│   │   ├── PasskeyRegistrationStartServlet.java     # パスキー登録開始
+│   │   └── PasskeyRegistrationFinishServlet.java    # パスキー登録完了
 │   ├── filter/                    # フィルター
 │   │   └── AuthenticationFilter.java # 認証フィルター
 │   ├── util/                      # ユーティリティ
@@ -96,11 +107,17 @@ kintai/
 │   │   ├── employee_menu.jsp      # 従業員画面
 │   │   ├── error.jsp              # エラー画面
 │   │   ├── user_management.jsp    # ユーザー管理画面
+│   │   ├── department_management.jsp # 部署管理画面
+│   │   ├── leave_management.jsp   # 休暇申請管理画面
+│   │   ├── leave_requests.jsp     # 休暇申請画面
 │   │   ├── qr_menu.jsp            # QRコード生成画面
 │   │   └── qr_scanner.jsp         # QRスキャナー画面
 │   ├── WEB-INF/
 │   │   └── web.xml                # Web設定ファイル
-│   ├── login.jsp                  # ログイン画面
+│   ├── login.jsp                  # ログイン画面（パスキー対応）
+│   ├── passkey_register.jsp       # パスキー登録画面
+│   ├── debug_qr_test.html         # QRテスト画面（開発用）
+│   ├── qr_scanner_test.html       # QRスキャナーテスト画面
 │   └── style.css                  # スタイルシート
 ├── src/main/resources/
 │   └── schema.sql                 # データベーススキーマ
@@ -189,7 +206,9 @@ mvn clean package
 - **出勤記録**: 「出勤」ボタンをクリック
 - **退勤記録**: 「退勤」ボタンをクリック
 - **履歴確認**: 自分の勤怠履歴を表で確認
-- **QRコード打刻**: 
+- **パスキー認証**: パスキーでのパスワードレスログイン
+- **パスキー認証**: パスキーでのパスワードレスログイン
+- **QRコード打刻**:
   - QRコード生成ページでQRコードを作成
   - スマートフォンでQRコードをスキャンして打刻
   - ユーザーIDQRコードは現在の状況に応じて自動的に出勤・退勤を判定
@@ -233,6 +252,7 @@ mvn jetty:run -Djetty.port=8081
 - **データ永続化**: このシステムはPostgreSQLデータベースと連携してデータを永続化します
 - **本番環境**: 実際の運用では適切なデータベース設定とセキュリティ対策が必要です
 - **セキュリティ**: パスワードはSHA-256でハッシュ化されていますが、本番環境ではより強固な認証システムの実装をお勧めします
+- **パスキー認証**: WebAuthn4J 0.29.5.RELEASEを使用しており、最新のWebAuthn仕様に対応しています
 - **ログ**: 本番環境では適切なログ出力の実装が必要です
 - **接続プール**: HikariCPを使用してデータベース接続を効率的に管理しています
 
@@ -251,6 +271,9 @@ mvn jetty:run -Djetty.port=8081
 - フロントエンド現代化（React/Vue.js）
 - テスト追加（JUnit、Mockito）
 - 他のデータベースへの対応（MySQL、Oracle等）
+- より高度なパスキー認証機能の追加
+- マルチテナント対応
+- レポート機能の拡張
 
 ## 📄 ライセンス
 
@@ -258,4 +281,4 @@ mvn jetty:run -Djetty.port=8081
 
 ---
 
-**開発者向け情報**: このプロジェクトはJava EE学習用のサンプルアプリケーションとして作成されました。本格的な勤怠管理システムとして使用する場合は、セキュリティ、パフォーマンス、可用性の観点から追加の実装が必要です。
+**開発者向け情報**: このプロジェクトはJava EE学習用のサンプルアプリケーションとして作成されました。WebAuthnパスキー認証、QRコード打刻、部署管理、休暇申請などの現代的な機能を実装しています。本格的な勤怠管理システムとして使用する場合は、セキュリティ、パフォーマンス、可用性の観点から追加の実装が必要です。
