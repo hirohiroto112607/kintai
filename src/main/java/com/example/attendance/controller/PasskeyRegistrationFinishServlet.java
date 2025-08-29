@@ -7,6 +7,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.example.attendance.dao.AuthenticatorDAO;
 import com.example.attendance.dao.UserDAO;
 import com.example.attendance.dto.Authenticator;
@@ -28,6 +31,8 @@ import jakarta.servlet.http.HttpSession;
 
 @WebServlet("/passkey/register/finish")
 public class PasskeyRegistrationFinishServlet extends HttpServlet {
+
+    private static final Logger logger = LoggerFactory.getLogger(PasskeyRegistrationFinishServlet.class);
 
     private final ObjectConverter objectConverter = new ObjectConverter();
     private ObjectMapper objectMapper;
@@ -63,20 +68,20 @@ while ((read = request.getInputStream().read(buffer)) != -1) {
 }
 byte[] rawBody = baos.toByteArray();
 
-System.out.println("DEBUG Content-Type: " + request.getHeader("Content-Type"));
-System.out.println("DEBUG request characterEncoding: " + request.getCharacterEncoding());
-System.out.println("DEBUG rawBody length: " + rawBody.length);
+logger.debug("Content-Type: {}", request.getHeader("Content-Type"));
+logger.debug("request characterEncoding: {}", request.getCharacterEncoding());
+logger.debug("rawBody length: {}", rawBody.length);
 // ログに先頭バイト列（最大128バイト）を16進で出力
 int dumpLen = Math.min(rawBody.length, 128);
 StringBuilder hex = new StringBuilder();
 for (int i = 0; i < dumpLen; i++) {
     hex.append(String.format("%02x ", rawBody[i]));
 }
-System.out.println("DEBUG rawBody hex (first " + dumpLen + " bytes): " + hex.toString());
+logger.debug("rawBody hex (first {} bytes): {}", dumpLen, hex.toString());
 
 // Jackson に渡す前に 0xA0 (NBSP) が先頭などにある場合の簡易サニタイズ
 if (rawBody.length > 0 && (rawBody[0] & 0xFF) == 0xA0) {
-    System.out.println("DEBUG rawBody startsWith 0xA0, trimming leading 0xA0 bytes");
+    logger.debug("rawBody startsWith 0xA0, trimming leading 0xA0 bytes");
     int offset = 0;
     while (offset < rawBody.length && (rawBody[offset] & 0xFF) == 0xA0) offset++;
     byte[] tmp = new byte[rawBody.length - offset];
@@ -89,26 +94,26 @@ Map<String, Object> requestBody = null;
 try {
     requestBody = objectMapper.readValue(rawBody, Map.class);
 } catch (com.fasterxml.jackson.core.JsonParseException ex) {
-    System.out.println("DEBUG JsonParseException with UTF-8 attempt: " + ex.getMessage());
+    logger.debug("JsonParseException with UTF-8 attempt: {}", ex.getMessage());
     // 代替: ISO-8859-1 -> UTF-8 変換を試す
     try {
         String latin = new String(rawBody, StandardCharsets.ISO_8859_1);
         byte[] utf8Bytes = latin.getBytes(StandardCharsets.UTF_8);
         requestBody = objectMapper.readValue(utf8Bytes, Map.class);
-        System.out.println("DEBUG parsed by converting ISO-8859-1->UTF-8");
+        logger.debug("parsed by converting ISO-8859-1->UTF-8");
     } catch (Exception ex2) {
-        System.out.println("DEBUG secondary parse failed: " + ex2.getMessage());
-        throw ex; // 元の例外を投げて上位で処理
+logger.debug("secondary parse failed: {}", ex2.getMessage());
+throw ex; // 元の例外を投げて上位で処理
     }
 }
 
 @SuppressWarnings("unchecked")
 Map<String, String> responseMap = (Map<String, String>) requestBody.get("response");
 
-System.out.println("DEBUG /passkey/register/finish received response keys: " + responseMap.keySet());
-System.out.println("DEBUG clientDataJSON length: " + (responseMap.get("clientDataJSON") != null ? responseMap.get("clientDataJSON").length() : "null"));
-System.out.println("DEBUG attestationObject length: " + (responseMap.get("attestationObject") != null ? responseMap.get("attestationObject").length() : "null"));
-System.out.println("DEBUG session challenge: " + challenge);
+logger.debug("/passkey/register/finish received response keys: {}", responseMap.keySet());
+logger.debug("clientDataJSON length: {}", (responseMap.get("clientDataJSON") != null ? responseMap.get("clientDataJSON").length() : "null"));
+logger.debug("attestationObject length: {}", (responseMap.get("attestationObject") != null ? responseMap.get("attestationObject").length() : "null"));
+logger.debug("session challenge: {}", challenge);
 
             byte[] clientDataJSON = Base64UrlUtil.decode(responseMap.get("clientDataJSON"));
             byte[] attestationObject = Base64UrlUtil.decode(responseMap.get("attestationObject"));
@@ -118,7 +123,7 @@ System.out.println("DEBUG session challenge: " + challenge);
             try {
                 collectedClientData = objectMapper.readValue(clientDataJSON, CollectedClientData.class);
             } catch (com.fasterxml.jackson.core.JsonParseException ex) {
-                System.out.println("DEBUG CollectedClientData parse failed: " + ex.getMessage());
+                logger.debug("CollectedClientData parse failed: {}", ex.getMessage());
                 // 簡易サニタイズ: 0xA0 (NBSP) をスペース(0x20) に置換して再試行
                 for (int i = 0; i < clientDataJSON.length; i++) {
                     if ((clientDataJSON[i] & 0xFF) == 0xA0) {
@@ -132,7 +137,7 @@ System.out.println("DEBUG session challenge: " + challenge);
             try {
                 attestationObjectParsed = objectMapper.readValue(attestationObject, AttestationObject.class);
             } catch (com.fasterxml.jackson.core.JsonParseException ex) {
-                System.out.println("DEBUG AttestationObject parse failed: " + ex.getMessage());
+                logger.debug("AttestationObject parse failed: {}", ex.getMessage());
                 // CBOR のため Jackson による JSON パースに失敗することがある。
                 // ここではパース失敗を許容し、raw attestationObject バイト列を保存するのみとする。
                 attestationObjectParsed = null;
@@ -154,12 +159,12 @@ System.out.println("DEBUG session challenge: " + challenge);
                     try {
                         byte[] rawIdBytes = Base64UrlUtil.decode(rawIdB64);
                         newAuthenticator.setCredentialId(rawIdBytes);
-                        System.out.println("DEBUG set credentialId from rawId, length: " + (rawIdBytes != null ? rawIdBytes.length : 0));
+                        logger.debug("set credentialId from rawId, length: {}", (rawIdBytes != null ? rawIdBytes.length : 0));
                     } catch (Exception e) {
-                        System.out.println("DEBUG failed to decode rawId: " + e.getMessage());
+                        logger.debug("failed to decode rawId: {}", e.getMessage());
                     }
                 } else {
-                    System.out.println("DEBUG rawId not provided in requestBody");
+                    logger.debug("rawId not provided in requestBody");
                 }
             }
 
@@ -168,24 +173,32 @@ System.out.println("DEBUG session challenge: " + challenge);
             newAuthenticator.setClientData(collectedClientData); // parsed client data
 
  // 保存
-System.out.println("DEBUG saving authenticator for userId: " + userId + ", credentialId length: " + (newAuthenticator.getCredentialId() != null ? newAuthenticator.getCredentialId().length : 0));
+logger.info("saving authenticator for userId: {}, credentialId length: {}", userId, (newAuthenticator.getCredentialId() != null ? newAuthenticator.getCredentialId().length : 0));
 if (newAuthenticator.getCredentialId() != null) {
-    System.out.println("DEBUG saved credentialId base64url: " + Base64UrlUtil.encodeToString(newAuthenticator.getCredentialId()));
+    logger.info("saved credentialId base64url: {}", Base64UrlUtil.encodeToString(newAuthenticator.getCredentialId()));
 } else {
-    System.out.println("DEBUG saved credentialId base64url: null");
+    logger.info("saved credentialId base64url: null");
 }
 authenticatorDAO.save(userId, newAuthenticator);
 
             UserDAO userDAO = new UserDAO();
             User user = userDAO.findByUsername(userId);
             session.setAttribute("loggedInUser", user);
+session.setAttribute("user", user);
+logger.info("user set in session after registration: {}", user != null ? user.getUsername() : "null");
 
             response.sendRedirect(request.getContextPath() + "/jsp/employee_menu.jsp");
 
         } catch (SQLException e) {
-            throw new ServletException("Database error during registration finish.", e);
+            logger.error("Database error during registration finish.", e);
+            response.setContentType("application/json;charset=UTF-8");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write("{\"success\":false,\"message\":\"登録中にデータベースエラーが発生しました。管理者に連絡してください。\"}");
         } catch (Exception e) {
-            throw new ServletException("Error during registration finish.", e);
+            logger.error("Error during registration finish.", e);
+            response.setContentType("application/json;charset=UTF-8");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write("{\"success\":false,\"message\":\"登録中にエラーが発生しました。しばらくしてから再度お試しください。\"}");
         }
     }
 }

@@ -78,7 +78,7 @@
         passkeyLoginButton.addEventListener('click', async () => {
             try {
                 // 1. 認証チャレンジを開始 (ユーザー名なし)
-                const startResponse = await fetch('<%= request.getContextPath() %>/passkey/authenticate/start');
+                const startResponse = await fetch('<%= request.getContextPath() %>/passkey/authenticate/start', { credentials: 'same-origin' });
                 if (!startResponse.ok) {
                     let errorText = '認証チャレンジの開始に失敗しました。';
                     try {
@@ -123,6 +123,7 @@
                 // 3. 認証結果をサーバーに送信
                 const finishResponse = await fetch('<%= request.getContextPath() %>/passkey/authenticate/finish', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         credentialId: base64url.encode(assertion.rawId),

@@ -1,6 +1,5 @@
 package com.example.attendance.dao;
 
-import java.io.ByteArrayInputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -57,7 +56,9 @@ public class AuthenticatorDAO {
                 if (rs.next()) {
                     String userId = rs.getString("user_id");
                     byte[] attestedCredentialDataBytes = rs.getBytes("attested_credential_data");
-                    AttestedCredentialData attestedCredentialData = objectConverter.getJsonConverter().readValue(new ByteArrayInputStream(attestedCredentialDataBytes), AttestedCredentialData.class);
+                    // Do NOT attempt to deserialize attested_credential_data here; some stored bytes
+                    // may be CBOR/opaque and cause parsing exceptions. Leave attestedCredentialData null.
+                    AttestedCredentialData attestedCredentialData = null;
                     long signCount = rs.getLong("sign_count");
                     com.example.attendance.dto.Authenticator authenticator = new com.example.attendance.dto.Authenticator();
                     authenticator.setUserId(userId);
@@ -74,92 +75,157 @@ public class AuthenticatorDAO {
     }
 
     public void save(String userId, com.example.attendance.dto.Authenticator authenticator) {
-        // public_key カラムが NOT NULL の環境があるため、public_key も必ず指定して挿入する。
-        // uv_initialized 等の NOT NULL カラムが存在する DB に対応するため、必要なカラムを明示して挿入する
-        String sql = "INSERT INTO authenticators (user_id, credential_id, public_key, attested_credential_data, uv_initialized, sign_count) VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        // Robust dynamic save that copes with schema differences:
+        // - Enumerate authenticators table columns
+        // - Build INSERT including columns present in the DB
+        // - Provide sensible defaults for NOT NULL columns that the app doesn't know about
+        try (Connection conn = DatabaseUtil.getConnection()) {
 
-            // attestedCredentialData を安全にシリアライズ（null 対応）
             byte[] attestedCredentialDataBytes = null;
             if (authenticator.getAttestedCredentialData() != null) {
                 attestedCredentialDataBytes = objectConverter.getJsonConverter().writeValueAsBytes(authenticator.getAttestedCredentialData());
             }
 
-            // credentialId は DTO の credentialId を優先し、なければ attestedCredentialData から取得する
             byte[] credentialId = authenticator.getCredentialId();
             if (credentialId == null && authenticator.getAttestedCredentialData() != null) {
                 credentialId = authenticator.getAttestedCredentialData().getCredentialId();
             }
 
-            // publicKeyBytes: 可能なら attestedCredentialData から取得、それ以外は attestedCredentialDataBytes を代用、
-            // 最終的に null ではなく空配列を保存して NOT NULL 制約を満たす
-            byte[] publicKeyBytes = null;
-            try {
-                if (authenticator.getAttestedCredentialData() != null) {
-                    // AttestedCredentialData が持つ public key を取り出す（ライブラリの API に依存）
-                    // safe access via reflection: avoid compile-time dependency on method that may not exist
-                    try {
-                        Object acd = authenticator.getAttestedCredentialData();
-                        java.lang.reflect.Method m = acd.getClass().getMethod("getCredentialPublicKey");
-                        Object pk = m.invoke(acd);
-                        if (pk instanceof byte[]) {
-                            publicKeyBytes = (byte[]) pk;
-                        } else if (pk != null) {
-                            // 最終手段で JSON シリアライズを使う
-                            publicKeyBytes = objectConverter.getJsonConverter().writeValueAsBytes(pk);
+            if (credentialId == null) {
+                throw new SQLException("credentialId is required for saving authenticator (null detected)");
+            }
+
+            // Discover columns for authenticators table in public schema
+            String colSql = "SELECT column_name, is_nullable, data_type, column_default FROM information_schema.columns WHERE table_name = 'authenticators' AND table_schema = 'public'";
+            List<String> insertCols = new ArrayList<>();
+            List<Object> values = new ArrayList<>();
+            List<Integer> sqlTypes = new ArrayList<>();
+
+            try (PreparedStatement colStmt = conn.prepareStatement(colSql);
+                 ResultSet colsRs = colStmt.executeQuery()) {
+                while (colsRs.next()) {
+                    String col = colsRs.getString("column_name");
+                    String isNullable = colsRs.getString("is_nullable"); // "YES"/"NO"
+                    String dataType = colsRs.getString("data_type"); // e.g. "bytea", "boolean", "character varying", "bigint"
+                    String colDefault = colsRs.getString("column_default");
+
+                    // skip serial primary key (id) — let DB handle it
+                    if ("id".equals(col)) {
+                        continue;
+                    }
+
+                    // decide value and SQL type
+                    Object value = null;
+                    int sqlType = java.sql.Types.VARCHAR;
+
+                    if ("user_id".equals(col)) {
+                        value = userId;
+                        sqlType = java.sql.Types.VARCHAR;
+                    } else if ("credential_id".equals(col)) {
+                        value = credentialId;
+                        sqlType = java.sql.Types.BINARY;
+                    } else if ("attested_credential_data".equals(col)) {
+                        value = attestedCredentialDataBytes != null ? attestedCredentialDataBytes : new byte[0];
+                        sqlType = java.sql.Types.BINARY;
+                    } else if ("sign_count".equals(col)) {
+                        value = authenticator.getSignCount();
+                        sqlType = java.sql.Types.BIGINT;
+                    } else {
+                        // For unknown columns, if nullable OR has default, we can skip providing a value.
+                        boolean nullable = "YES".equalsIgnoreCase(isNullable);
+                        boolean hasDefault = colDefault != null && !colDefault.trim().isEmpty();
+                        if (nullable || hasDefault) {
+                            // skip including this column in INSERT to allow DB defaults / nulls
+                            continue;
                         }
-                    } catch (NoSuchMethodException nsme) {
-                        // method not present in this webauthn4j version - ignore and fallback
-                    } catch (Throwable ignore) {
-                        // other reflection errors - fallback
+                        // Not nullable and no default -> provide a reasonable fallback based on data_type
+                        if (dataType != null) {
+                            String dt = dataType.toLowerCase();
+                            if (dt.contains("boolean")) {
+                                value = Boolean.FALSE;
+                                sqlType = java.sql.Types.BOOLEAN;
+                            } else if (dt.contains("bytea")) {
+                                value = new byte[0];
+                                sqlType = java.sql.Types.BINARY;
+                            } else if (dt.contains("bigint")) {
+                                value = 0L;
+                                sqlType = java.sql.Types.BIGINT;
+                            } else if (dt.contains("integer") || dt.contains("int")) {
+                                value = 0;
+                                sqlType = java.sql.Types.INTEGER;
+                            } else if (dt.contains("timestamp")) {
+                                value = new java.sql.Timestamp(System.currentTimeMillis());
+                                sqlType = java.sql.Types.TIMESTAMP;
+                            } else {
+                                // text, varchar, other stringy types
+                                value = "";
+                                sqlType = java.sql.Types.VARCHAR;
+                            }
+                        } else {
+                            // fallback to empty string
+                            value = "";
+                            sqlType = java.sql.Types.VARCHAR;
+                        }
+                    }
+
+                    // include column/value in insert lists
+                    insertCols.add(col);
+                    values.add(value);
+                    sqlTypes.add(sqlType);
+                }
+            }
+
+            if (insertCols.isEmpty()) {
+                throw new SQLException("No writable columns discovered for authenticators table");
+            }
+
+            // Build INSERT statement
+            StringBuilder sbCols = new StringBuilder();
+            StringBuilder sbPlaceholders = new StringBuilder();
+            for (int i = 0; i < insertCols.size(); i++) {
+                if (i > 0) {
+                    sbCols.append(", ");
+                    sbPlaceholders.append(", ");
+                }
+                sbCols.append(insertCols.get(i));
+                sbPlaceholders.append("?");
+            }
+            String insertSql = "INSERT INTO authenticators (" + sbCols.toString() + ") VALUES (" + sbPlaceholders.toString() + ")";
+
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                for (int i = 0; i < values.size(); i++) {
+                    Object v = values.get(i);
+                    int idx = i + 1;
+                    int t = sqlTypes.get(i);
+                    if (v == null) {
+                        insertStmt.setNull(idx, t);
+                        continue;
+                    }
+                    if (t == java.sql.Types.BINARY) {
+                        insertStmt.setBytes(idx, (byte[]) v);
+                    } else if (t == java.sql.Types.BIGINT) {
+                        insertStmt.setLong(idx, ((Number) v).longValue());
+                    } else if (t == java.sql.Types.INTEGER) {
+                        insertStmt.setInt(idx, ((Number) v).intValue());
+                    } else if (t == java.sql.Types.BOOLEAN) {
+                        insertStmt.setBoolean(idx, (Boolean) v);
+                    } else if (t == java.sql.Types.TIMESTAMP) {
+                        insertStmt.setTimestamp(idx, (java.sql.Timestamp) v);
+                    } else {
+                        insertStmt.setString(idx, v.toString());
                     }
                 }
-            } catch (Throwable ignore) {}
-
-            if (publicKeyBytes == null) {
-                // フォールバック: attestedCredentialDataBytes があればそれを public_key に保存（簡易）
-                if (attestedCredentialDataBytes != null) {
-                    publicKeyBytes = attestedCredentialDataBytes;
-                } else {
-                    publicKeyBytes = new byte[0];
-                }
+                insertStmt.executeUpdate();
             }
 
-            pstmt.setString(1, userId);
-
-            if (credentialId != null) {
-                pstmt.setBytes(2, credentialId);
-            } else {
-                pstmt.setNull(2, java.sql.Types.BINARY);
-            }
-
-            // public_key は NOT NULL の可能性があるため、空配列ではなく NULL を避ける
-            if (publicKeyBytes != null) {
-                pstmt.setBytes(3, publicKeyBytes);
-            } else {
-                pstmt.setBytes(3, new byte[0]);
-            }
-
-            if (attestedCredentialDataBytes != null) {
-                pstmt.setBytes(4, attestedCredentialDataBytes);
-            } else {
-                pstmt.setNull(4, java.sql.Types.BINARY);
-            }
-
-            // uv_initialized が NOT NULL の場合に備えて値を設定（デフォルト false）
-            pstmt.setBoolean(5, authenticator.isUvInitialized());
-
-            pstmt.setLong(6, authenticator.getSignCount());
-            pstmt.executeUpdate();
             try {
-                if (credentialId != null) {
-                    System.out.println("DEBUG AuthenticatorDAO.save inserted credentialId base64url: " + com.webauthn4j.util.Base64UrlUtil.encodeToString(credentialId));
-                } else {
-                    System.out.println("DEBUG AuthenticatorDAO.save inserted credentialId is null");
-                }
+                System.out.println("DEBUG AuthenticatorDAO.save inserted credentialId base64url: " + com.webauthn4j.util.Base64UrlUtil.encodeToString(credentialId));
             } catch (Throwable ignore) {}
+
         } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            // JSON conversion or metadata read errors
             e.printStackTrace();
         }
     }
@@ -211,9 +277,11 @@ public class AuthenticatorDAO {
     /**
      * Fallback lookup: search by hex representation of credential_id (Postgres encode(...,'hex'))
      * This helps recover from encoding/storage mismatches during debugging.
+     * This implementation is more flexible: it does case-insensitive match and falls back
+     * to other encodings via separate helper methods.
      */
     public com.example.attendance.dto.Authenticator findByCredentialIdHex(String hex) {
-        String sql = "SELECT credential_id, user_id, attested_credential_data, sign_count FROM authenticators WHERE encode(credential_id,'hex') = ?";
+        String sql = "SELECT credential_id, user_id, attested_credential_data, sign_count FROM authenticators WHERE lower(encode(credential_id,'hex')) = lower(?)";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, hex);
@@ -222,10 +290,39 @@ public class AuthenticatorDAO {
                     byte[] credentialId = rs.getBytes("credential_id");
                     String userId = rs.getString("user_id");
                     byte[] attestedCredentialDataBytes = rs.getBytes("attested_credential_data");
+                    // Skip deserialization of attested_credential_data to avoid throwing during lookup.
                     AttestedCredentialData attestedCredentialData = null;
-                    if (attestedCredentialDataBytes != null) {
-                        attestedCredentialData = objectConverter.getJsonConverter().readValue(new ByteArrayInputStream(attestedCredentialDataBytes), AttestedCredentialData.class);
-                    }
+                    long signCount = rs.getLong("sign_count");
+                    com.example.attendance.dto.Authenticator authenticator = new com.example.attendance.dto.Authenticator();
+                    authenticator.setUserId(userId);
+                    authenticator.setCredentialId(credentialId);
+                    authenticator.setAttestedCredentialData(attestedCredentialData);
+                    authenticator.setSignCount(signCount);
+                    return authenticator;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Fallback lookup: search by base64 representation of credential_id (Postgres encode(...,'base64'))
+     * Some environments or tools may have stored the value as base64; this method helps matching that.
+     */
+    public com.example.attendance.dto.Authenticator findByCredentialIdBase64(String base64) {
+        String sql = "SELECT credential_id, user_id, attested_credential_data, sign_count FROM authenticators WHERE encode(credential_id,'base64') = ?";
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, base64);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    byte[] credentialId = rs.getBytes("credential_id");
+                    String userId = rs.getString("user_id");
+                    byte[] attestedCredentialDataBytes = rs.getBytes("attested_credential_data");
+                    // Skip deserialization of attested_credential_data to avoid throwing during lookup.
+                    AttestedCredentialData attestedCredentialData = null;
                     long signCount = rs.getLong("sign_count");
                     com.example.attendance.dto.Authenticator authenticator = new com.example.attendance.dto.Authenticator();
                     authenticator.setUserId(userId);

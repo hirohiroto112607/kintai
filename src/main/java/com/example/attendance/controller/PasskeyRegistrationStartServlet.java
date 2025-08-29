@@ -6,6 +6,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.example.attendance.dao.AuthenticatorDAO;
 import com.example.attendance.dto.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +37,8 @@ import jakarta.servlet.http.HttpSession;
 @WebServlet("/passkey/register/start")
 public class PasskeyRegistrationStartServlet extends HttpServlet {
 
+    private static final Logger logger = LoggerFactory.getLogger(PasskeyRegistrationStartServlet.class);
+
     private final ObjectConverter objectConverter = new ObjectConverter();
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new WebAuthnJSONModule(objectConverter));
     private final AuthenticatorDAO authenticatorDAO = new AuthenticatorDAO();
@@ -42,10 +47,19 @@ public class PasskeyRegistrationStartServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         HttpSession session = req.getSession();
         User user = (User) session.getAttribute("user");
+        if (user == null) {
+            // 管理者など別キーでログインしている場合を考慮してフォールバックを試す
+            user = (User) session.getAttribute("loggedInUser");
+            if (user != null) {
+                logger.info("passkey register start: using loggedInUser for session id={}", session.getId());
+            }
+        }
 
         if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            resp.getWriter().write("{\"error\":\"User not logged in\"}");
+            resp.setContentType("application/json;charset=UTF-8");
+            resp.getWriter().write("{\"error\":\"ログインしていません。先に通常ログインしてください。\"}");
+            logger.info("passkey register start blocked: user not logged in, session id={}", session.getId());
             return;
         }
 
