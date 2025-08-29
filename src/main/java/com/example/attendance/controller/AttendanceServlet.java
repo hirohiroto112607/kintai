@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import com.example.attendance.dao.AttendanceDAO;
 import com.example.attendance.dto.Attendance;
 import com.example.attendance.dto.User;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -22,20 +23,54 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-@WebServlet("/attendance")
+@WebServlet(urlPatterns = {"/attendance", "/attendance/status"})
 public class AttendanceServlet extends HttpServlet {
     private final AttendanceDAO attendanceDAO = new AttendanceDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         HttpSession session = req.getSession();
-        if (session.getAttribute("user") == null) {
+        String action = req.getParameter("action");
+        
+        // デバッグ情報をログに出力
+        System.out.println("=== AttendanceServlet.doGet ===");
+        System.out.println("Request URI: " + req.getRequestURI());
+        System.out.println("Action parameter: " + action);
+        System.out.println("Session exists: " + (session != null));
+        System.out.println("User in session: " + (session != null && session.getAttribute("user") != null ? 
+                          ((User) session.getAttribute("user")).getUsername() : "null"));
+        
+        // テスト用のHTMLページを提供
+        if ("test".equals(action)) {
+            resp.setContentType("text/html; charset=UTF-8");
+            resp.getWriter().write(getTestHtml(req.getContextPath()));
+            return;
+        }
+        
+        if (session == null || session.getAttribute("user") == null) {
+            // AJAX リクエストの場合はJSONエラーレスポンスを返す
+            String requestedWith = req.getHeader("X-Requested-With");
+            String accept = req.getHeader("Accept");
+            
+            if ("XMLHttpRequest".equals(requestedWith) || 
+                (accept != null && accept.contains("application/json"))) {
+                resp.setContentType("application/json; charset=UTF-8");
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                resp.getWriter().write("{\"success\":false,\"error\":\"認証が必要です\"}");
+                return;
+            }
+            
             resp.sendRedirect(req.getContextPath() + "/login");
             return;
         }
         User user = (User) session.getAttribute("user");
-
-        String action = req.getParameter("action");
+        
+        // 明示的な /attendance/status エンドポイントを追加でサポート
+        String servletPath = req.getServletPath();
+        if ("/attendance/status".equals(servletPath) || "get_status".equals(action)) {
+            getAttendanceStatus(req, resp, user);
+            return;
+        }
 
         if ("export_csv".equals(action) && "admin".equals(user.getRole())) {
             exportCsv(req, resp);
@@ -66,6 +101,11 @@ public class AttendanceServlet extends HttpServlet {
         HttpSession session = req.getSession();
         User user = (User) session.getAttribute("user");
         String action = req.getParameter("action");
+
+        if ("nfc_attendance".equals(action)) {
+            handleNFCAttendance(req, resp, user);
+            return;
+        }
 
         switch (action) {
             case "check_in":
@@ -162,6 +202,129 @@ public class AttendanceServlet extends HttpServlet {
         }
     }
 
+    private void getAttendanceStatus(HttpServletRequest req, HttpServletResponse resp, User user) throws IOException {
+        resp.setContentType("application/json; charset=UTF-8");
+        
+        // デバッグ情報をログに出力
+        System.out.println("=== AttendanceServlet.getAttendanceStatus ===");
+        System.out.println("User: " + (user != null ? user.getUsername() : "null"));
+        System.out.println("Request URI: " + req.getRequestURI());
+        System.out.println("Servlet Path: " + req.getServletPath());
+        System.out.println("Request Method: " + req.getMethod());
+        System.out.println("Content Type: " + req.getContentType());
+        System.out.println("Accept Header: " + req.getHeader("Accept"));
+        System.out.println("X-Requested-With: " + req.getHeader("X-Requested-With"));
+        
+        if (user == null) {
+            System.out.println("Error: User is null in getAttendanceStatus");
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> response = Map.of(
+                "success", false,
+                "error", "ユーザー情報が取得できません"
+            );
+            resp.getWriter().write(mapper.writeValueAsString(response));
+            return;
+        }
+        
+        try {
+            // 今日の最新の勤怠記録を取得
+            List<Attendance> todayRecords = attendanceDAO.findByUserIdAndDate(user.getUsername(), LocalDate.now());
+            
+            String status = "out"; // デフォルトは退勤状態
+            String lastActivity = null;
+            
+            if (!todayRecords.isEmpty()) {
+                // 最新の記録を取得
+                Attendance latestRecord = todayRecords.get(todayRecords.size() - 1);
+                
+                if (latestRecord.getCheckOutTime() == null) {
+                    // 退勤記録がない場合は出勤中
+                    status = "in";
+                    lastActivity = "出勤: " + latestRecord.getCheckInTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+                } else {
+                    // 退勤記録がある場合は退勤状態
+                    status = "out";
+                    lastActivity = "退勤: " + latestRecord.getCheckOutTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+                }
+            }
+            
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> response = Map.of(
+                "success", true,
+                "status", status,
+                "lastActivity", lastActivity != null ? lastActivity : "本日の記録なし"
+            );
+            
+            String jsonResponse = mapper.writeValueAsString(response);
+            System.out.println("JSON Response: " + jsonResponse);
+            resp.getWriter().write(jsonResponse);
+            
+        } catch (Exception e) {
+            System.out.println("Error in getAttendanceStatus: " + e.getMessage());
+            System.out.println("Exception class: " + e.getClass().getName());
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> response = Map.of(
+                "success", false,
+                "error", "勤務状況の取得に失敗しました"
+            );
+            resp.getWriter().write(mapper.writeValueAsString(response));
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private void handleNFCAttendance(HttpServletRequest req, HttpServletResponse resp, User user) throws IOException {
+        resp.setContentType("application/json; charset=UTF-8");
+        
+        try {
+            String username = user.getUsername();
+            
+            // 出勤・退勤の自動判定
+            boolean isCheckIn = shouldCheckIn(username);
+            
+            if (isCheckIn) {
+                attendanceDAO.checkIn(username);
+            } else {
+                attendanceDAO.checkOut(username);
+            }
+            
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> response = Map.of(
+                "success", true,
+                "action", isCheckIn ? "check_in" : "check_out",
+                "timestamp", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            );
+            
+            resp.getWriter().write(mapper.writeValueAsString(response));
+            
+        } catch (Exception e) {
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> response = Map.of(
+                "success", false,
+                "error", "勤怠打刻に失敗しました: " + e.getMessage()
+            );
+            resp.getWriter().write(mapper.writeValueAsString(response));
+        }
+    }
+    
+    private boolean shouldCheckIn(String username) {
+        if (username == null) {
+            return true; // デフォルトは出勤
+        }
+        // 今日の最新の勤怠記録を取得
+        List<Attendance> todayRecords = attendanceDAO.findByUserIdAndDate(username, LocalDate.now());
+        
+        if (todayRecords.isEmpty()) {
+            // 今日の記録がない場合は出勤
+            return true;
+        }
+        
+        // 最新の記録を取得
+        Attendance latestRecord = todayRecords.get(todayRecords.size() - 1);
+        
+        // 退勤記録がない場合は退勤、ある場合は出勤
+        return latestRecord.getCheckOutTime() != null;
+    }
+
     private void exportCsv(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("text/csv; charset=UTF-8");
         resp.setHeader("Content-Disposition", "attachment; filename=\"attendance_records.csv\"");
@@ -193,5 +356,78 @@ public class AttendanceServlet extends HttpServlet {
             }
             writer.flush();
         }
+    }
+    
+    /**
+     * テスト用のHTMLページを生成
+     */
+    private String getTestHtml(String contextPath) {
+        return "<!DOCTYPE html>\n" +
+               "<html>\n" +
+               "<head>\n" +
+               "    <meta charset=\"UTF-8\">\n" +
+               "    <title>NFCエラー診断テスト</title>\n" +
+               "</head>\n" +
+               "<body>\n" +
+               "    <h1>NFCエラー診断テスト</h1>\n" +
+               "    <button id=\"test-fetch\">getCurrentAttendanceStatus テスト</button>\n" +
+               "    <div id=\"result\" style=\"margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9;\"></div>\n" +
+               "\n" +
+               "    <script>\n" +
+               "        document.getElementById('test-fetch').addEventListener('click', async function() {\n" +
+               "            const resultDiv = document.getElementById('result');\n" +
+               "            resultDiv.innerHTML = 'リクエスト実行中...';\n" +
+               "            \n" +
+               "            try {\n" +
+               "                console.log('=== テストフェッチ開始 ===');\n" +
+               "                \n" +
+               "                const response = await fetch('" + contextPath + "/attendance?action=get_status', {\n" +
+               "                    method: 'GET',\n" +
+               "                    credentials: 'same-origin',\n" +
+               "                    headers: {\n" +
+               "                        'Accept': 'application/json',\n" +
+               "                        'X-Requested-With': 'XMLHttpRequest'\n" +
+               "                    }\n" +
+               "                });\n" +
+               "                \n" +
+               "                console.log('Response status:', response.status);\n" +
+               "                console.log('Response content-type:', response.headers.get('content-type'));\n" +
+               "                \n" +
+               "                const responseText = await response.text();\n" +
+               "                console.log('Response text:', responseText);\n" +
+               "                \n" +
+               "                resultDiv.innerHTML = `\n" +
+               "                    <h3>レスポンス詳細:</h3>\n" +
+               "                    <p><strong>Status:</strong> ${response.status}</p>\n" +
+               "                    <p><strong>Content-Type:</strong> ${response.headers.get('content-type')}</p>\n" +
+               "                    <h4>Response Body:</h4>\n" +
+               "                    <pre style=\"background: #eee; padding: 10px; overflow: auto;\">${responseText}</pre>\n" +
+               "                `;\n" +
+               "                \n" +
+               "                try {\n" +
+               "                    const jsonData = JSON.parse(responseText);\n" +
+               "                    resultDiv.innerHTML += `\n" +
+               "                        <h4>JSONパース成功:</h4>\n" +
+               "                        <pre style=\"background: #d4edda; padding: 10px; overflow: auto;\">${JSON.stringify(jsonData, null, 2)}</pre>\n" +
+               "                    `;\n" +
+               "                } catch (jsonError) {\n" +
+               "                    resultDiv.innerHTML += `\n" +
+               "                        <h4 style=\"color: red;\">JSONパースエラー:</h4>\n" +
+               "                        <p style=\"color: red;\">${jsonError.message}</p>\n" +
+               "                        <p>これが297行目のエラーの原因です！</p>\n" +
+               "                    `;\n" +
+               "                }\n" +
+               "                \n" +
+               "            } catch (error) {\n" +
+               "                console.error('Fetch error:', error);\n" +
+               "                resultDiv.innerHTML = `\n" +
+               "                    <h3 style=\"color: red;\">Fetchエラー:</h3>\n" +
+               "                    <p style=\"color: red;\">${error.message}</p>\n" +
+               "                `;\n" +
+               "            }\n" +
+               "        });\n" +
+               "    </script>\n" +
+               "</body>\n" +
+               "</html>";
     }
 }

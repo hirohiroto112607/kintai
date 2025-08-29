@@ -132,6 +132,43 @@ public class AttendanceDAO {
     }
 
     /**
+     * 指定されたユーザーの指定日の勤怠履歴を取得します。
+     * @param userId ユーザーID
+     * @param date 検索対象の日付
+     * @return 指定日の勤怠記録のリスト
+     */
+    public List<Attendance> findByUserIdAndDate(String userId, LocalDate date) {
+        List<Attendance> attendances = new ArrayList<>();
+        String sql = "SELECT id, user_id, check_in_time, check_out_time FROM attendance " +
+                    "WHERE user_id = ? AND DATE(check_in_time) = ? ORDER BY check_in_time ASC";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, userId);
+            stmt.setDate(2, Date.valueOf(date));
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Attendance attendance = new Attendance(rs.getString("user_id"));
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    
+                    Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
+                    if (checkOutTimestamp != null) {
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                    }
+                    
+                    attendances.add(attendance);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find attendance records for user: " + userId + " on date: " + date, e);
+        }
+        
+        return attendances;
+    }
+
+    /**
      * 全ての勤怠履歴を取得します。
      * @return 全勤怠記録のリスト
      */
