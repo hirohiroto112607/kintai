@@ -184,6 +184,7 @@
 
     <div class="button-group">
         <a href="<c:url value='/jsp/nfc_setup.jsp'/>" class="button secondary">NFC設定</a>
+        <a href="<c:url value='/jsp/nfc_attendance_mobile.jsp'/>" class="button secondary">モバイル打刻画面</a>
         <a href="<c:url value='/jsp/qr_menu.jsp'/>" class="button secondary">QRコード打刻</a>
         <a href="<c:url value='/attendance'/>" class="button secondary">勤怠メニューに戻る</a>
         <a href="<c:url value='/logout'/>" class="button secondary">ログアウト</a>
