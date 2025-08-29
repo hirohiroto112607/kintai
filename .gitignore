@@ -4,3 +4,4 @@ target/*
 !.gitkeep
 *.class
 .vscode/
+db_migrations/*.sql

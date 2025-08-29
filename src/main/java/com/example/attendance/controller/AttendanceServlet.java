@@ -28,7 +28,11 @@ public class AttendanceServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        HttpSession session = req.getSession(false);
+        HttpSession session = req.getSession();
+        if (session.getAttribute("user") == null) {
+            resp.sendRedirect(req.getContextPath() + "/login");
+            return;
+        }
         User user = (User) session.getAttribute("user");
 
         String action = req.getParameter("action");
@@ -59,7 +63,7 @@ public class AttendanceServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        HttpSession session = req.getSession(false);
+        HttpSession session = req.getSession();
         User user = (User) session.getAttribute("user");
         String action = req.getParameter("action");
 

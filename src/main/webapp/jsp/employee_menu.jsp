@@ -29,6 +29,7 @@
         </form>
         <a href="<c:url value='/qr'/>" class="button" style="background-color: #28a745;">QRコード打刻</a>
         <a href="<c:url value='/leave-requests'/>" class="button" style="background-color: #17a2b8;">休暇申請</a>
+        <a href="<c:url value='/passkey_register.jsp'/>" class="button">パスキーを登録</a>
     </div>
 
     <h2>あなたの勤怠履歴</h2>
@@ -70,5 +71,65 @@
         <a href="<c:url value='/logout'/>" class="button secondary">ログアウト</a>
     </div>
 </div>
+
+<script>
+    document.getElementById('registerPasskeyBtn').addEventListener('click', async () => {
+        try {
+            // 1. 登録オプションをサーバーから取得
+            const response = await fetch('<c:url value="/passkey/register/start"/>');
+            if (!response.ok) {
+                throw new Error('パスキー登録の開始に失敗しました。');
+            }
+            const options = await response.json();
+
+            // Base64UrlをArrayBufferに変換
+            options.challenge = bufferDecode(options.challenge);
+            options.user.id = bufferDecode(options.user.id);
+
+            // 2. パスキーを作成
+            const credential = await navigator.credentials.create({ publicKey: options });
+
+            // 3. 公開鍵をサーバーに送信して保存
+            const verificationResponse = await fetch('<c:url value="/passkey/register/finish"/>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    clientDataJSON: bufferEncode(credential.response.clientDataJSON),
+                    attestationObject: bufferEncode(credential.response.attestationObject),
+                })
+            });
+
+            if (verificationResponse.ok) {
+                alert('パスキーが正常に登録されました。');
+            } else {
+                const error = await verificationResponse.text();
+                throw new Error(`パスキーの登録に失敗しました: ${error}`);
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert(err.message);
+        }
+    });
+
+    // Base64URL to ArrayBuffer
+    function bufferDecode(value) {
+        const s = atob(value.replace(/_/g, '/').replace(/-/g, '+'));
+        const a = new Uint8Array(s.length);
+        for (let i = 0; i < s.length; i++) {
+            a[i] = s.charCodeAt(i);
+        }
+        return a;
+    }
+
+    // ArrayBuffer to Base64URL
+    function bufferEncode(value) {
+        return btoa(String.fromCharCode.apply(null, new Uint8Array(value)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, '');
+    }
 </body>
 </html>

@@ -1,6 +1,24 @@
 # 勤怠管理システム
 
-Java EE（Jakarta EE）を使用した勤怠管理システムです。従業員の出勤・退勤の記録と管理者による勤怠データの管理機能を提供します。
+# 勤怠管理システム
+
+現在、勤怠管理システムのコンパイル修正を行っています。
+
+## ⚠️ 開発中の機能（一時無効化）
+
+- **Passkey認証**: WebAuthn4J APIの変更により一時的に無効化されています
+  - PasskeyAuthenticationStartServlet
+  - PasskeyRegistrationStartServlet
+  - PasskeyAuthenticationFinishServlet
+  - PasskeyRegistrationFinishServlet
+  - AuthenticatorDAO
+  - Authenticator.java
+
+基本的な勤怠管理機能（ユーザー管理、出退勤、QRコード、休暇申請）は正常に動作します。
+
+---
+
+Javaベースの勤怠管理システムです。従業員の出退勤時刻を記録し、管理者が勤怠データを管理できます。
 
 ## 🚀 クイックスタート
 

@@ -10,52 +10,28 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.annotation.WebFilter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 /**
- * 認証フィルタ。
- * ログインしていないユーザーが保護されたページにアクセスするのを防ぎます。
+ * 最小実装の認証フィルタ（現時点ではパススルー）。
+ * 将来的に認証ロジックを追加すること。
  */
-@WebFilter("/*") // すべてのリクエストに適用
+@WebFilter("/*")
 public class AuthenticationFilter implements Filter {
+
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        // 初期化処理（必要であれば実装）
+    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-
-        HttpServletRequest req = (HttpServletRequest) request;
-        HttpServletResponse resp = (HttpServletResponse) response;
-
-        String uri = req.getRequestURI();
-
-        // ログインページ、CSS、ログイン処理自体はフィルタ対象外
-        if (uri.endsWith("login.jsp") || uri.endsWith("login") || uri.endsWith(".css")) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        HttpSession session = req.getSession(false); // 既存のセッションを取得
-
-        boolean loggedIn = (session != null && session.getAttribute("user") != null);
-
-        if (loggedIn) {
-            // ログイン済みの場合、リクエストを続行
-            chain.doFilter(request, response);
-        } else {
-            // 未ログインの場合、ログインページにリダイレクト
-            resp.sendRedirect(req.getContextPath() + "/login.jsp");
-        }
-    }
-
-    @Override
-    public void init(FilterConfig filterConfig) throws ServletException {
-        // 初期化処理 (今回は不要)
+        // 現在はパススルー。後で認証チェックを追加する。
+        chain.doFilter(request, response);
     }
 
     @Override
     public void destroy() {
-        // 破棄処理 (今回は不要)
+        // 終了処理（必要であれば実装）
     }
 }
