@@ -1,4 +1,3 @@
-
 package com.example.attendance.controller;
 
 import java.io.IOException;
@@ -278,6 +277,7 @@ public class AttendanceServlet extends HttpServlet {
         
         try {
             String cardId = req.getParameter("cardId");
+            String mode = req.getParameter("mode"); // 追加: モードパラメータを受け取る
             String targetUsername = null;
             
             // cardId が渡された場合は管理者端末からの社員証打刻を想定
@@ -321,8 +321,15 @@ public class AttendanceServlet extends HttpServlet {
                 targetUsername = user.getUsername();
             }
             
-            // 出勤・退勤の自動判定
-            boolean isCheckIn = shouldCheckIn(targetUsername);
+            // 出勤・退勤の判定（モード指定がある場合は自動判定をスキップ）
+            boolean isCheckIn;
+            if (mode != null && !mode.isEmpty()) {
+                // モードが指定されている場合はそれに従う
+                isCheckIn = "check_in".equals(mode) || "in".equals(mode);
+            } else {
+                // モードが指定されていない場合は自動判定
+                isCheckIn = shouldCheckIn(targetUsername);
+            }
             
             if (isCheckIn) {
                 attendanceDAO.checkIn(targetUsername);

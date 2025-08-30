@@ -70,44 +70,6 @@
             min-width: 320px;
         }
 
-        /* 右下センサーガイド（クリック領域を広めに） */
-        .sensor-guide {
-            position: absolute;
-            right: 18px;
-            bottom: 18px;
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.07);
-            box-shadow: 0 6px 18px rgba(0,0,0,0.18);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            backdrop-filter: blur(4px);
-            -webkit-tap-highlight-color: transparent;
-            cursor: pointer;
-        }
-
-        .sensor-ring {
-            width: 96px;
-            height: 96px;
-            border-radius: 50%;
-            border: 4px dashed rgba(255,255,255,0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .sensor-text {
-            font-size: 14px;
-            color: #fff;
-            margin-top: 8px;
-            text-align: center;
-            font-weight: 700;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        }
-
         /* 戻るボタン */
         .back-btn {
             position: absolute;
@@ -177,8 +139,8 @@
 
     <div class="center-panel" id="centerPanel">
         <div class="title">NFC勤怠打刻</div>
-        <div class="instruction">カードを画面右下にタッチ！</div>
-        <div class="sub-instruction">画面をタップして読み取りを開始します</div>
+        <div class="instruction">画面をタッチして打刻開始！</div>
+        <div class="sub-instruction">左側タッチ：退勤　｜　右側タッチ：出勤</div>
 
         <div id="statusBlock" style="margin-top:18px;">
             <div id="largeStatus" class="status-large" style="background: transparent; display: inline-block; color: #222;">
@@ -196,12 +158,6 @@
             <div id="resultMessage" style="font-size:22px; font-weight:700;"></div>
             <div id="resultTime" style="margin-top:8px; font-size:16px; opacity:0.9;"></div>
         </div>
-    </div>
-
-    <!-- 右下のタップガイド -->
-    <div id="sensorGuide" class="sensor-guide" title="ここをタップしてNFCを開始">
-        <div class="sensor-ring" aria-hidden="true"></div>
-        <div class="sensor-text">右下をタップ</div>
     </div>
 
     <!-- ポートレート時の案内 -->
@@ -226,7 +182,6 @@
     const resultDetail = document.getElementById('resultDetail');
     const resultMessage = document.getElementById('resultMessage');
     const resultTime = document.getElementById('resultTime');
-    const sensorGuide = document.getElementById('sensorGuide');
     const portraitOverlay = document.getElementById('portraitOverlay');
 
     // 初期背景色
@@ -300,8 +255,18 @@
     function setStatusResult(action, username, timestamp) {
         spinner.style.display = 'none';
         resultDetail.style.display = 'block';
-        resultMessage.textContent = (action === 'check_in' ? '出勤を記録しました' : '退勤を記録しました') + (username ? '：' + username : '');
-        resultTime.textContent = '記録時刻：' + timestamp;
+
+        // デバッグ表示にサーバー応答を追加
+        const debugResponse = document.getElementById('debugResponse');
+        debugResponse.textContent = `サーバー応答: ${action} - ${timestamp}\n対象ユーザー: ${username || currentUser}`;
+
+        // 管理者が打刻した場合は対象ユーザー名も表示
+        if (username) {
+            resultMessage.textContent = (action === 'check_in' ? '出勤を記録しました: ' : '退勤を記録しました: ') + username;
+        } else {
+            resultMessage.textContent = action === 'check_in' ? '出勤を記録しました' : '退勤を記録しました';
+        }
+        resultTime.textContent = '記録時刻: ' + timestamp;
 
         if (action === 'check_in') {
             bodyEl.style.backgroundColor = BG_BLUE;
@@ -346,7 +311,7 @@
     }
 
     // NFC 読取の開始/停止
-    async function startScanning() {
+    async function startScanning(mode = null) {
         if (scanning) return;
         if (!checkNFCSupport()) return;
 
@@ -402,12 +367,12 @@
                     }
 
                     if (detectedCompanyCard) {
-                        await processAttendance();
+                        await processAttendance(null, mode);
                         return;
                     }
 
                     if (detectedEmployeeId) {
-                        await processAttendance(detectedEmployeeId);
+                        await processAttendance(detectedEmployeeId, mode);
                         return;
                     }
 
@@ -439,7 +404,7 @@
     }
 
     // 勤怠処理（既存 API を利用）
-    async function processAttendance(cardId) {
+    async function processAttendance(cardId, mode = null) {
         try {
             // 表示: 処理中
             setStatusScanning();
@@ -449,6 +414,11 @@
                 body.append('cardId', cardId);
             } else {
                 body.append('username', currentUser);
+            }
+            
+            // モード指定がある場合は追加
+            if (mode) {
+                body.append('mode', mode);
             }
 
             const response = await fetch('${pageContext.request.contextPath}/attendance?action=nfc_attendance', {
@@ -511,18 +481,120 @@
         }
     }
 
-    // センサーガイドと画面タップのイベント
-    // 右下ガイドをタップしたときに開始
-    sensorGuide.addEventListener('click', (e) => {
-        e.stopPropagation();
-        startScanning();
-    });
+    // タッチ位置によるモード判定
+    function getTouchMode(touchX, screenWidth) {
+        // 画面中央を基準に右側は出勤、左側は退勤
+        const mode = touchX > screenWidth / 2 ? 'check_in' : 'check_out';
+        
+        // デバッグ表示
+        const debugResponse = document.getElementById('debugResponse');
+        const modeText = mode === 'check_in' ? '出勤' : '退勤';
+        debugResponse.textContent = `タッチ位置: ${touchX}px / ${screenWidth}px → ${modeText}モード`;
+        
+        return mode;
+    }
 
-    // 画面どこをタップしても開始（ユーザー指定で「画面タップでスキャン開始」です）
-    document.getElementById('mobileContainer').addEventListener('click', (e) => {
-        // ただし portrait overlay が表示されているときは無効
+    // タッチイベントの処理
+    function handleTouchStart(event) {
+        // ポートレート時は無効
+        if (window.matchMedia && window.matchMedia("(orientation: portrait)").matches) {
+            const debugResponse = document.getElementById('debugResponse');
+            debugResponse.textContent = 'ポートレートモードではタッチ選択は無効です';
+            return;
+        }
+        
+        event.preventDefault();
+        
+        const touch = event.touches[0] || event.changedTouches[0];
+        const screenWidth = window.innerWidth;
+        const touchX = touch.clientX;
+        
+        // タッチ位置でモードを決定
+        const mode = getTouchMode(touchX, screenWidth);
+        
+        // 現在の勤務状況を取得してモードチェック
+        checkModeAndProceed(mode);
+    }
+
+    // モードチェックと処理実行
+    async function checkModeAndProceed(mode) {
+        try {
+            // 現在の勤務状況を取得
+            const response = await fetch('${pageContext.request.contextPath}/attendance?action=get_status', { 
+                credentials: 'same-origin' 
+            });
+            
+            if (!response.ok) {
+                setTemporaryError('勤務状況の取得に失敗しました');
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                setTemporaryError('勤務状況の取得に失敗しました: ' + (data.error || '不明なエラー'));
+                return;
+            }
+            
+            const currentStatus = data.status; // "in" または "out"
+            const isCurrentlyCheckedIn = currentStatus === 'in';
+            
+            // モードチェック
+            if (mode === 'check_in' && isCurrentlyCheckedIn) {
+                // 出勤中に出勤モードを選択した場合
+                setTemporaryError('既に本日出勤しています。退勤モードを選択してください。');
+                return;
+            }
+            
+            if (mode === 'check_out' && !isCurrentlyCheckedIn) {
+                // 退勤済みで退勤モードを選択した場合
+                setTemporaryError('既に本日退勤しています。出勤モードを選択してください。');
+                return;
+            }
+            
+            // モードチェック通過 - 処理を続行
+            proceedWithMode(mode);
+            
+        } catch (error) {
+            console.error('モードチェックエラー:', error);
+            setTemporaryError('モードチェック中にエラーが発生しました');
+        }
+    }
+
+    // モード確定後の処理
+    function proceedWithMode(mode) {
+        // モードに応じた表示
+        if (mode === 'check_in') {
+            largeStatus.textContent = '出勤モードで開始';
+            largeStatus.style.background = BG_BLUE;
+        } else {
+            largeStatus.textContent = '退勤モードで開始';
+            largeStatus.style.background = BG_GREEN;
+        }
+        largeStatus.style.color = '#fff';
+        
+        // 少し遅れてNFCスキャンを開始
+        setTimeout(() => {
+            startScanning(mode);
+        }, 300);
+    }
+
+    // センサーガイドと画面タップのイベント
+    // 右下ガイドをタップしたときに開始（自動判定モード）
+    // sensorGuide.addEventListener('click', (e) => {
+    //     e.stopPropagation();
+    //     startScanning(); // 自動判定モード
+    // });
+
+    // 画面タッチイベント（位置によるモード指定）
+    const mobileContainer = document.getElementById('mobileContainer');
+    mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+    
+    // クリックイベントも残しておく（タッチ非対応環境用）
+    mobileContainer.addEventListener('click', (e) => {
+        // ポートレート時は無効
         if (window.matchMedia && window.matchMedia("(orientation: portrait)").matches) return;
-        startScanning();
+        startScanning(); // 自動判定モード
     });
 
     // 画面読み込み時の初期化
