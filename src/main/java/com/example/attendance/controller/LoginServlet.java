@@ -1,4 +1,3 @@
-
 package com.example.attendance.controller;
 
 import java.io.IOException;
@@ -27,18 +26,53 @@ public class LoginServlet extends HttpServlet {
         String username = req.getParameter("username");
         String password = req.getParameter("password");
 
-        if (userDAO.verifyPassword(username, password)) {
-            User user = userDAO.findByUsername(username);
-            HttpSession session = req.getSession(); // 新しいセッションを作成
-            session.setAttribute("user", user);
-            
-            if ("admin".equals(user.getRole())) {
-                resp.sendRedirect(req.getContextPath() + "/attendance");
+        // 入力値の検証
+        if (username == null || username.trim().isEmpty()) {
+            req.setAttribute("errorMessage", "ユーザー名を入力してください。");
+            req.getRequestDispatcher("/login.jsp").forward(req, resp);
+            return;
+        }
+
+        if (password == null || password.trim().isEmpty()) {
+            req.setAttribute("errorMessage", "パスワードを入力してください。");
+            req.getRequestDispatcher("/login.jsp").forward(req, resp);
+            return;
+        }
+
+        try {
+            // パスワード検証
+            if (userDAO.verifyPassword(username.trim(), password)) {
+                User user = userDAO.findByUsername(username.trim());
+                
+                if (user == null) {
+                    req.setAttribute("errorMessage", "ユーザーが見つかりません。");
+                    req.getRequestDispatcher("/login.jsp").forward(req, resp);
+                    return;
+                }
+
+                // アカウントが有効かチェック
+                if (!user.isEnabled()) {
+                    req.setAttribute("errorMessage", "アカウントが無効になっています。管理者にお問い合わせください。");
+                    req.getRequestDispatcher("/login.jsp").forward(req, resp);
+                    return;
+                }
+
+                // ログイン成功
+                HttpSession session = req.getSession();
+                session.setAttribute("user", user);
+                
+                // 管理者と従業員でリダイレクト先を分ける
+                String redirectUrl = "/attendance";
+                resp.sendRedirect(req.getContextPath() + redirectUrl);
+                
             } else {
-                resp.sendRedirect(req.getContextPath() + "/attendance");
+                req.setAttribute("errorMessage", "ユーザー名またはパスワードが正しくありません。");
+                req.getRequestDispatcher("/login.jsp").forward(req, resp);
             }
-        } else {
-            req.setAttribute("errorMessage", "ユーザーIDまたはパスワードが不正です。またはアカウントが無効です。");
+            
+        } catch (Exception e) {
+            // データベースエラーやその他の予期せぬエラーの処理
+            req.setAttribute("errorMessage", "システムエラーが発生しました。しばらく経ってから再度お試しください。");
             req.getRequestDispatcher("/login.jsp").forward(req, resp);
         }
     }

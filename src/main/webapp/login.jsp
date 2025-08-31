@@ -13,6 +13,12 @@
     <div class="container">
         <h1>勤怠管理システム</h1>
         
+        <c:if test="${not empty errorMessage}">
+            <p class="error-message">
+                <c:out value="${errorMessage}"/>
+            </p>
+        </c:if>
+        
         <c:if test="${not empty param.error}">
             <p class="error-message">
                 <c:choose>
@@ -63,13 +69,11 @@
             },
             decode: (str) => {
                 str = str.replace(/-/g, '+').replace(/_/g, '/');
-                while (str.length % 4) {
-                    str += '=';
-                }
-                const base64 = atob(str);
-                const buffer = new Uint8Array(base64.length);
-                for (let i = 0; i < base64.length; i++) {
-                    buffer[i] = base64.charCodeAt(i);
+                while (str.length % 4) str += '=';
+                const binary = atob(str);
+                const buffer = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    buffer[i] = binary.charCodeAt(i);
                 }
                 return buffer;
             }
@@ -89,6 +93,7 @@
                     }
                     throw new Error(errorText);
                 }
+
                 const publicKeyCredentialRequestOptions = await startResponse.json();
 
                 // Build minimal publicKey object to avoid sending unexpected fields (avoid 'hints' / invalid sequences)
