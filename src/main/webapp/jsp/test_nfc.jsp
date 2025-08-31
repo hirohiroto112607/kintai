@@ -1,0 +1,68 @@
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>NFCエラー診断テスト</title>
+</head>
+<body>
+    <h1>NFCエラー診断テスト</h1>
+    <button id="test-fetch">getCurrentAttendanceStatus テスト</button>
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9;"></div>
+
+    <script>
+        document.getElementById('test-fetch').addEventListener('click', async function() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'リクエスト実行中...';
+
+            try {
+                console.log('=== テストフェッチ開始 ===');
+
+                const response = await fetch('${pageContext.request.contextPath}/attendance?action=get_status', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response content-type:', response.headers.get('content-type'));
+
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+
+                resultDiv.innerHTML = `
+                    <h3>レスポンス詳細:</h3>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Content-Type:</strong> ${response.headers.get('content-type')}</p>
+                    <h4>Response Body:</h4>
+                    <pre style="background: #eee; padding: 10px; overflow: auto;">${responseText}</pre>
+                `;
+
+                try {
+                    const jsonData = JSON.parse(responseText);
+                    resultDiv.innerHTML += `
+                        <h4>JSONパース成功:</h4>
+                        <pre style="background: #d4edda; padding: 10px; overflow: auto;">${JSON.stringify(jsonData, null, 2)}</pre>
+                    `;
+                } catch (jsonError) {
+                    resultDiv.innerHTML += `
+                        <h4 style="color: red;">JSONパースエラー:</h4>
+                        <p style="color: red;">${jsonError.message}</p>
+                        <p>これが297行目のエラーの原因です！</p>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+                resultDiv.innerHTML = `
+                    <h3 style="color: red;">Fetchエラー:</h3>
+                    <p style="color: red;">${error.message}</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

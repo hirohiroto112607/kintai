@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.example.attendance.dao.AttendanceDAO;
 import com.example.attendance.dao.UserDAO;
 import com.example.attendance.dto.Attendance;
@@ -25,6 +28,7 @@ import jakarta.servlet.http.HttpSession;
 
 @WebServlet(urlPatterns = {"/attendance", "/attendance/status"})
 public class AttendanceServlet extends HttpServlet {
+    private static final Logger logger = LoggerFactory.getLogger(AttendanceServlet.class);
     private final AttendanceDAO attendanceDAO = new AttendanceDAO();
 
     @Override
@@ -33,17 +37,16 @@ public class AttendanceServlet extends HttpServlet {
         String action = req.getParameter("action");
         
         // デバッグ情報をログに出力
-        System.out.println("=== AttendanceServlet.doGet ===");
-        System.out.println("Request URI: " + req.getRequestURI());
-        System.out.println("Action parameter: " + action);
-        System.out.println("Session exists: " + (session != null));
-        System.out.println("User in session: " + (session != null && session.getAttribute("user") != null ? 
-                          ((User) session.getAttribute("user")).getUsername() : "null"));
+        logger.debug("=== AttendanceServlet.doGet ===");
+        logger.debug("Request URI: {}", req.getRequestURI());
+        logger.debug("Action parameter: {}", action);
+        logger.debug("Session exists: {}", session != null);
+        logger.debug("User in session: {}", session != null && session.getAttribute("user") != null ? 
+                          ((User) session.getAttribute("user")).getUsername() : "null");
         
         // テスト用のHTMLページを提供
         if ("test".equals(action)) {
-            resp.setContentType("text/html; charset=UTF-8");
-            resp.getWriter().write(getTestHtml(req.getContextPath()));
+            resp.sendRedirect(req.getContextPath() + "/jsp/test_nfc.jsp");
             return;
         }
         
@@ -206,17 +209,17 @@ public class AttendanceServlet extends HttpServlet {
         resp.setContentType("application/json; charset=UTF-8");
         
         // デバッグ情報をログに出力
-        System.out.println("=== AttendanceServlet.getAttendanceStatus ===");
-        System.out.println("User: " + (user != null ? user.getUsername() : "null"));
-        System.out.println("Request URI: " + req.getRequestURI());
-        System.out.println("Servlet Path: " + req.getServletPath());
-        System.out.println("Request Method: " + req.getMethod());
-        System.out.println("Content Type: " + req.getContentType());
-        System.out.println("Accept Header: " + req.getHeader("Accept"));
-        System.out.println("X-Requested-With: " + req.getHeader("X-Requested-With"));
+        logger.debug("=== AttendanceServlet.getAttendanceStatus ===");
+        logger.debug("User: {}", user != null ? user.getUsername() : "null");
+        logger.debug("Request URI: {}", req.getRequestURI());
+        logger.debug("Servlet Path: {}", req.getServletPath());
+        logger.debug("Request Method: {}", req.getMethod());
+        logger.debug("Content Type: {}", req.getContentType());
+        logger.debug("Accept Header: {}", req.getHeader("Accept"));
+        logger.debug("X-Requested-With: {}", req.getHeader("X-Requested-With"));
         
         if (user == null) {
-            System.out.println("Error: User is null in getAttendanceStatus");
+            logger.error("Error: User is null in getAttendanceStatus");
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> response = Map.of(
                 "success", false,
@@ -256,12 +259,12 @@ public class AttendanceServlet extends HttpServlet {
             );
             
             String jsonResponse = mapper.writeValueAsString(response);
-            System.out.println("JSON Response: " + jsonResponse);
+            logger.debug("JSON Response: {}", jsonResponse);
             resp.getWriter().write(jsonResponse);
             
         } catch (Exception e) {
-            System.out.println("Error in getAttendanceStatus: " + e.getMessage());
-            System.out.println("Exception class: " + e.getClass().getName());
+            logger.error("Error in getAttendanceStatus: {}", e.getMessage());
+            logger.error("Exception class: {}", e.getClass().getName());
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> response = Map.of(
                 "success", false,
@@ -348,6 +351,7 @@ public class AttendanceServlet extends HttpServlet {
             resp.getWriter().write(mapper.writeValueAsString(response));
             
         } catch (Exception e) {
+            logger.error("Error in handleNFCAttendance: {}", e.getMessage());
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> response = Map.of(
                 "success", false,
@@ -407,78 +411,5 @@ public class AttendanceServlet extends HttpServlet {
             }
             writer.flush();
         }
-    }
-    
-    /**
-     * テスト用のHTMLページを生成
-     */
-    private String getTestHtml(String contextPath) {
-        return "<!DOCTYPE html>\n" +
-               "<html>\n" +
-               "<head>\n" +
-               "    <meta charset=\"UTF-8\">\n" +
-               "    <title>NFCエラー診断テスト</title>\n" +
-               "</head>\n" +
-               "<body>\n" +
-               "    <h1>NFCエラー診断テスト</h1>\n" +
-               "    <button id=\"test-fetch\">getCurrentAttendanceStatus テスト</button>\n" +
-               "    <div id=\"result\" style=\"margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9;\"></div>\n" +
-               "\n" +
-               "    <script>\n" +
-               "        document.getElementById('test-fetch').addEventListener('click', async function() {\n" +
-               "            const resultDiv = document.getElementById('result');\n" +
-               "            resultDiv.innerHTML = 'リクエスト実行中...';\n" +
-               "            \n" +
-               "            try {\n" +
-               "                console.log('=== テストフェッチ開始 ===');\n" +
-               "                \n" +
-               "                const response = await fetch('" + contextPath + "/attendance?action=get_status', {\n" +
-               "                    method: 'GET',\n" +
-               "                    credentials: 'same-origin',\n" +
-               "                    headers: {\n" +
-               "                        'Accept': 'application/json',\n" +
-               "                        'X-Requested-With': 'XMLHttpRequest'\n" +
-               "                    }\n" +
-               "                });\n" +
-               "                \n" +
-               "                console.log('Response status:', response.status);\n" +
-               "                console.log('Response content-type:', response.headers.get('content-type'));\n" +
-               "                \n" +
-               "                const responseText = await response.text();\n" +
-               "                console.log('Response text:', responseText);\n" +
-               "                \n" +
-               "                resultDiv.innerHTML = `\n" +
-               "                    <h3>レスポンス詳細:</h3>\n" +
-               "                    <p><strong>Status:</strong> ${response.status}</p>\n" +
-               "                    <p><strong>Content-Type:</strong> ${response.headers.get('content-type')}</p>\n" +
-               "                    <h4>Response Body:</h4>\n" +
-               "                    <pre style=\"background: #eee; padding: 10px; overflow: auto;\">${responseText}</pre>\n" +
-               "                `;\n" +
-               "                \n" +
-               "                try {\n" +
-               "                    const jsonData = JSON.parse(responseText);\n" +
-               "                    resultDiv.innerHTML += `\n" +
-               "                        <h4>JSONパース成功:</h4>\n" +
-               "                        <pre style=\"background: #d4edda; padding: 10px; overflow: auto;\">${JSON.stringify(jsonData, null, 2)}</pre>\n" +
-               "                    `;\n" +
-               "                } catch (jsonError) {\n" +
-               "                    resultDiv.innerHTML += `\n" +
-               "                        <h4 style=\"color: red;\">JSONパースエラー:</h4>\n" +
-               "                        <p style=\"color: red;\">${jsonError.message}</p>\n" +
-               "                        <p>これが297行目のエラーの原因です！</p>\n" +
-               "                    `;\n" +
-               "                }\n" +
-               "                \n" +
-               "            } catch (error) {\n" +
-               "                console.error('Fetch error:', error);\n" +
-               "                resultDiv.innerHTML = `\n" +
-               "                    <h3 style=\"color: red;\">Fetchエラー:</h3>\n" +
-               "                    <p style=\"color: red;\">${error.message}</p>\n" +
-               "                `;\n" +
-               "            }\n" +
-               "        });\n" +
-               "    </script>\n" +
-               "</body>\n" +
-               "</html>";
     }
 }
