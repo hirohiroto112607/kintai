@@ -540,17 +540,17 @@
             const isCurrentlyCheckedIn = currentStatus === 'in';
             
             // モードチェック
-            if (mode === 'check_in' && isCurrentlyCheckedIn) {
+            <%-- if (mode === 'check_in' && isCurrentlyCheckedIn) {
                 // 出勤中に出勤モードを選択した場合
                 setTemporaryError('既に本日出勤しています。退勤モードを選択してください。');
                 return;
-            }
+            } --%>
             
-            if (mode === 'check_out' && !isCurrentlyCheckedIn) {
+            <%-- if (mode === 'check_out' && !isCurrentlyCheckedIn) {
                 // 退勤済みで退勤モードを選択した場合
                 setTemporaryError('既に本日退勤しています。出勤モードを選択してください。');
                 return;
-            }
+            } --%>
             
             // モードチェック通過 - 処理を続行
             proceedWithMode(mode);
