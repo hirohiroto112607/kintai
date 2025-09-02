@@ -44,9 +44,20 @@ public class LeaveRequestServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         req.setCharacterEncoding("UTF-8");
         HttpSession session = req.getSession(false);
+        String employeeId = req.getParameter("employeeId");
+
+        // セッションがない場合、employeeIdで認証をバイパス（モバイルアプリ用）
         if (session == null || session.getAttribute("user") == null) {
-            resp.sendRedirect(req.getContextPath() + "/login.jsp");
-            return;
+            if (employeeId == null || employeeId.trim().isEmpty()) {
+                resp.sendRedirect(req.getContextPath() + "/login.jsp");
+                return;
+            }
+            // employeeIdでセッションを作成（簡易実装）
+            User dummyUser = new User();
+            dummyUser.setUsername(employeeId);
+            dummyUser.setRole("employee");
+            session = req.getSession(true);
+            session.setAttribute("user", dummyUser);
         }
 
         User currentUser = (User) session.getAttribute("user");
@@ -68,9 +79,18 @@ public class LeaveRequestServlet extends HttpServlet {
         String startDate = req.getParameter("startDate");
         String endDate = req.getParameter("endDate");
         String reason = req.getParameter("reason");
+        String employeeId = req.getParameter("employeeId");
 
+        // セッションからユーザー取得、またはemployeeIdを使用
         User user = (User) req.getSession().getAttribute("user");
-        repository.addLeaveRequest(user.getUsername(), leaveType, startDate, endDate, reason);
+        String username = user != null ? user.getUsername() : employeeId;
+
+        if (username == null || username.trim().isEmpty()) {
+            req.getSession().setAttribute("errorMessage", "ユーザーが特定できません。");
+            return;
+        }
+
+        repository.addLeaveRequest(username, leaveType, startDate, endDate, reason);
 
         req.getSession().setAttribute("successMessage", "休暇申請を送信しました。");
     }
