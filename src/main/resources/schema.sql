@@ -3,6 +3,15 @@
 -- データベースの作成（管理者権限で実行）
 -- CREATE DATABASE kintai;
 
+-- updated_atを自動更新するトリガー関数
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- 部署テーブル
 CREATE TABLE IF NOT EXISTS departments (
     department_id VARCHAR(50) PRIMARY KEY,
@@ -18,9 +27,11 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255) PRIMARY KEY,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL,
-    department_id INT,
+    department_id VARCHAR(50),
+    enabled BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (department_id) REFERENCES departments(department_id)
 );
 
 -- 勤怠記録テーブル
@@ -29,7 +40,9 @@ CREATE TABLE IF NOT EXISTS attendance (
     username VARCHAR(255) NOT NULL,
     clock_in TIMESTAMP WITH TIME ZONE,
     clock_out TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (username) REFERENCES users(username)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 );
 
 -- 休暇申請テーブル
@@ -40,7 +53,7 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     end_date DATE NOT NULL,
     reason VARCHAR(255),
     status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-    approved_by VARCHAR(50),
+    approved_by VARCHAR(255),
     approval_date TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -57,28 +70,19 @@ CREATE TABLE IF NOT EXISTS authenticators (
     sign_count BIGINT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(username)
+    FOREIGN KEY (user_id) REFERENCES users(username) ON DELETE CASCADE
 );
 
 -- インデックスの作成
-CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
-CREATE INDEX IF NOT EXISTS idx_attendance_check_in_time ON attendance(check_in_time);
-CREATE INDEX IF NOT EXISTS idx_attendance_user_id_check_in ON attendance(user_id, check_in_time);
+CREATE INDEX IF NOT EXISTS idx_attendance_username ON attendance(username);
+CREATE INDEX IF NOT EXISTS idx_attendance_clock_in ON attendance(clock_in);
+CREATE INDEX IF NOT EXISTS idx_attendance_username_clock_in ON attendance(username, clock_in);
 CREATE INDEX IF NOT EXISTS idx_users_department_id ON users(department_id);
-CREATE INDEX IF NOT EXISTS idx_leave_requests_user_id ON leave_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_username ON leave_requests(username);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_dates ON leave_requests(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_authenticators_credential_id ON authenticators(credential_id);
-
--- updated_atを自動更新するトリガー関数
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
 
 -- トリガーの作成
 DROP TRIGGER IF EXISTS update_departments_updated_at ON departments;
@@ -123,4 +127,5 @@ INSERT INTO users (username, password, role, department_id, enabled) VALUES
     ('admin1', '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca', 'admin', 'HR', true),     -- adminpass
     ('employee2', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'employee', 'SALES', false)  -- password
 ON CONFLICT (username) DO UPDATE SET
-    department_id = EXCLUDED.department_id;
+    department_id = EXCLUDED.department_id,
+    enabled = EXCLUDED.enabled;
