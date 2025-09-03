@@ -2,6 +2,12 @@
 package com.example.attendance.filter;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+
+import com.example.attendance.dao.UserDAO;
+import com.example.attendance.dto.User;
+import com.example.attendance.util.TokenUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -55,37 +61,74 @@ public class AuthenticationFilter implements Filter {
             return;
         }
         
-        // セッションチェック
-        HttpSession session = httpRequest.getSession(false);
-        boolean isLoggedIn = (session != null && session.getAttribute("user") != null);
-        
-        System.out.println("Session exists: " + (session != null));
-        System.out.println("Is logged in: " + isLoggedIn);
-        
-        if (!isLoggedIn) {
-            // AJAXリクエストかどうかチェック
-            String requestedWith = httpRequest.getHeader("X-Requested-With");
-            String accept = httpRequest.getHeader("Accept");
-            
-            boolean isAjaxRequest = "XMLHttpRequest".equals(requestedWith) || 
-                                  (accept != null && accept.contains("application/json"));
-            
-            System.out.println("Is AJAX request: " + isAjaxRequest);
-            
-            if (isAjaxRequest) {
-                // AJAXリクエストの場合はJSONエラーを返す
+        // APIリクエストかWebブラウザリクエストかを判定
+        String accept = httpRequest.getHeader("Accept");
+        String authorization = httpRequest.getHeader("Authorization");
+        boolean isApiRequest = (accept != null && accept.contains("application/json")) ||
+                              (authorization != null && authorization.startsWith("Bearer "));
+
+        System.out.println("Authorization header: " + (authorization != null ? "present" : "null"));
+        System.out.println("Is API request: " + isApiRequest);
+
+        boolean isAuthenticated = false;
+        User authenticatedUser = null;
+
+        if (isApiRequest) {
+            // APIリクエスト：JWTトークン検証
+            if (authorization != null && authorization.startsWith("Bearer ")) {
+                String token = authorization.substring(7); // "Bearer "の後ろを取得
+                try {
+                    String username = TokenUtil.getUsernameFromToken(token);
+                    String role = TokenUtil.getRoleFromToken(token);
+
+                    // トークンから取得したユーザー情報を検証
+                    UserDAO userDAO = new UserDAO();
+                    User user = userDAO.findByUsername(username);
+
+                    if (user != null && user.isEnabled() && role.equals(user.getRole())) {
+                        isAuthenticated = true;
+                        authenticatedUser = user;
+                        System.out.println("Token authentication successful for user: " + username);
+                    } else {
+                        System.out.println("Token authentication failed: user not found or disabled");
+                    }
+                } catch (Exception e) {
+                    System.out.println("Token validation failed: " + e.getMessage());
+                }
+            }
+        } else {
+            // Webブラウザリクエスト：セッションチェック
+            HttpSession session = httpRequest.getSession(false);
+            isAuthenticated = (session != null && session.getAttribute("user") != null);
+            if (isAuthenticated) {
+                authenticatedUser = (User) session.getAttribute("user");
+            }
+            System.out.println("Session exists: " + (session != null));
+            System.out.println("Is logged in: " + isAuthenticated);
+        }
+
+        if (!isAuthenticated) {
+            if (isApiRequest) {
+                // APIリクエストの場合はJSONエラーを返す
                 httpResponse.setContentType("application/json; charset=UTF-8");
                 httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 String jsonResponse = "{\"success\":false,\"error\":\"認証が必要です\"}";
                 System.out.println("Sending JSON error response: " + jsonResponse);
-                httpResponse.getWriter().write(jsonResponse);
+                PrintWriter writer = httpResponse.getWriter();
+                writer.write(jsonResponse);
+                writer.flush();
                 return;
             } else {
-                // 通常のリクエストの場合はログインページにリダイレクト
+                // Webブラウザリクエストの場合はログインページにリダイレクト
                 System.out.println("Redirecting to login page");
                 httpResponse.sendRedirect(contextPath + "/login");
                 return;
             }
+        }
+
+        // 認証済みユーザーをリクエスト属性に設定（サーブレットで使用可能）
+        if (authenticatedUser != null) {
+            httpRequest.setAttribute("authenticatedUser", authenticatedUser);
         }
         
         System.out.println("User authenticated, continuing...");

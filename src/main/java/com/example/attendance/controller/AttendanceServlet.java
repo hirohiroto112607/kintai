@@ -33,40 +33,47 @@ public class AttendanceServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        HttpSession session = req.getSession();
         String action = req.getParameter("action");
-        
+
         // デバッグ情報をログに出力
         logger.debug("=== AttendanceServlet.doGet ===");
         logger.debug("Request URI: {}", req.getRequestURI());
         logger.debug("Action parameter: {}", action);
-        logger.debug("Session exists: {}", session != null);
-        logger.debug("User in session: {}", session != null && session.getAttribute("user") != null ? 
-                          ((User) session.getAttribute("user")).getUsername() : "null");
-        
+
         // テスト用のHTMLページを提供
         if ("test".equals(action)) {
             resp.sendRedirect(req.getContextPath() + "/jsp/test_nfc.jsp");
             return;
         }
-        
-        if (session == null || session.getAttribute("user") == null) {
+
+        // フィルターで認証されたユーザーを取得
+        User user = (User) req.getAttribute("authenticatedUser");
+        if (user == null) {
+            // セッションからの取得をフォールバック（Webブラウザ用）
+            HttpSession session = req.getSession(false);
+            if (session != null) {
+                user = (User) session.getAttribute("user");
+            }
+        }
+
+        logger.debug("User: {}", user != null ? user.getUsername() : "null");
+
+        if (user == null) {
             // AJAX リクエストの場合はJSONエラーレスポンスを返す
             String requestedWith = req.getHeader("X-Requested-With");
             String accept = req.getHeader("Accept");
-            
-            if ("XMLHttpRequest".equals(requestedWith) || 
+
+            if ("XMLHttpRequest".equals(requestedWith) ||
                 (accept != null && accept.contains("application/json"))) {
                 resp.setContentType("application/json; charset=UTF-8");
                 resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 resp.getWriter().write("{\"success\":false,\"error\":\"認証が必要です\"}");
                 return;
             }
-            
+
             resp.sendRedirect(req.getContextPath() + "/login");
             return;
         }
-        User user = (User) session.getAttribute("user");
         
         // 明示的な /attendance/status エンドポイントを追加でサポート
         String servletPath = req.getServletPath();
@@ -80,16 +87,19 @@ public class AttendanceServlet extends HttpServlet {
             return;
         }
 
-        // メッセージをセッションからリクエストスコープへ移動
-        String successMessage = (String) session.getAttribute("successMessage");
-        if (successMessage != null) {
-            req.setAttribute("successMessage", successMessage);
-            session.removeAttribute("successMessage");
-        }
-        String errorMessage = (String) session.getAttribute("errorMessage");
-        if (errorMessage != null) {
-            req.setAttribute("errorMessage", errorMessage);
-            session.removeAttribute("errorMessage");
+        // メッセージをセッションからリクエストスコープへ移動（Webブラウザの場合のみ）
+        HttpSession session = req.getSession(false);
+        if (session != null) {
+            String successMessage = (String) session.getAttribute("successMessage");
+            if (successMessage != null) {
+                req.setAttribute("successMessage", successMessage);
+                session.removeAttribute("successMessage");
+            }
+            String errorMessage = (String) session.getAttribute("errorMessage");
+            if (errorMessage != null) {
+                req.setAttribute("errorMessage", errorMessage);
+                session.removeAttribute("errorMessage");
+            }
         }
 
         if ("admin".equals(user.getRole())) {
@@ -101,8 +111,21 @@ public class AttendanceServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        HttpSession session = req.getSession();
-        User user = (User) session.getAttribute("user");
+        // フィルターで認証されたユーザーを取得
+        User user = (User) req.getAttribute("authenticatedUser");
+        if (user == null) {
+            // セッションからの取得をフォールバック（Webブラウザ用）
+            HttpSession session = req.getSession(false);
+            if (session != null) {
+                user = (User) session.getAttribute("user");
+            }
+        }
+
+        if (user == null) {
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
         String action = req.getParameter("action");
 
         if ("nfc_attendance".equals(action)) {
@@ -110,21 +133,28 @@ public class AttendanceServlet extends HttpServlet {
             return;
         }
 
+        // Webブラウザの場合のみセッションを使用
+        HttpSession session = req.getSession(false);
+
         switch (action) {
             case "check_in":
                 attendanceDAO.checkIn(user.getUsername());
-                session.setAttribute("successMessage", "出勤を記録しました。");
+                if (session != null) {
+                    session.setAttribute("successMessage", "出勤を記録しました。");
+                }
                 break;
             case "check_out":
                 attendanceDAO.checkOut(user.getUsername());
-                session.setAttribute("successMessage", "退勤を記録しました。");
+                if (session != null) {
+                    session.setAttribute("successMessage", "退勤を記録しました。");
+                }
                 break;
             case "add_manual":
-                if ("admin".equals(user.getRole()))
+                if ("admin".equals(user.getRole()) && session != null)
                     handleAddManual(req, session);
                 break;
             case "delete_manual":
-                if ("admin".equals(user.getRole()))
+                if ("admin".equals(user.getRole()) && session != null)
                     handleDeleteManual(req, session);
                 break;
         }
@@ -168,7 +198,21 @@ public class AttendanceServlet extends HttpServlet {
 
     private void handleEmployeeView(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        User user = (User) req.getSession().getAttribute("user");
+        // フィルターで認証されたユーザーを取得
+        User user = (User) req.getAttribute("authenticatedUser");
+        if (user == null) {
+            // セッションからの取得をフォールバック（Webブラウザ用）
+            HttpSession session = req.getSession(false);
+            if (session != null) {
+                user = (User) session.getAttribute("user");
+            }
+        }
+
+        if (user == null) {
+            resp.sendRedirect(req.getContextPath() + "/login");
+            return;
+        }
+
         req.setAttribute("attendanceRecords", attendanceDAO.findByUserId(user.getUsername()));
         req.getRequestDispatcher("/jsp/employee_menu.jsp").forward(req, resp);
     }

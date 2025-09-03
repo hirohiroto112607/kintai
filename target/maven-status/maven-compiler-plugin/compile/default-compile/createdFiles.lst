@@ -14,8 +14,10 @@ com/example/attendance/controller/PasskeyAuthenticationStartServlet.class
 com/example/attendance/dto/User.class
 com/example/attendance/listener/DatabaseContextListener.class
 com/example/attendance/dto/Authenticator.class
+com/example/attendance/controller/LoginServlet$LoginResponse.class
 com/example/attendance/dao/UserDAO.class
 com/example/attendance/controller/DepartmentServlet.class
+com/example/attendance/util/TokenUtil.class
 com/example/attendance/controller/LeaveRequestServlet.class
 com/example/attendance/dao/AttendanceDAO.class
 com/example/attendance/util/QRCodeUtil$TokenData.class
