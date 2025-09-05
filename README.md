@@ -1,15 +1,15 @@
 # 勤怠管理システム
 
-# 勤怠管理システム
-
 Javaベースの包括的な勤怠管理システムです。従業員の出退勤時刻を記録し、管理者が勤怠データを管理できます。WebAuthn（パスキー）を使用したパスワードレス認証に対応しています。
 
 ## ✨ 最新機能
 
 - **🔐 パスキー認証**: WebAuthn（パスキー）を使用したセキュアなパスワードレス認証
-- **📱 多様な打刻方法**: 従来のWeb画面打刻に加え、QRコードスキャンによる打刻に対応
+- **📱 多様な打刻方法**: 従来のWeb画面打刻に加え、QRコードスキャンによる打刻、NFC打刻に対応
 - **🎯 インテリジェント出退勤判定**: ユーザーの現在の状況に応じて自動的に出勤・退勤を判定
 - **💼 包括的な管理機能**: 勤怠データの管理、ユーザー管理、休暇申請管理を統合
+- **📱 スマートフォンアプリ**: AndroidアプリによるNFCエミュレーションとQRコード表示機能
+- **🔧 HCEプロトタイプ**: Host Card Emulationを使用したNFC社員証エミュレーション
 
 ## 🚀 クイックスタート
 
@@ -31,14 +31,18 @@ http://localhost:8080/kintai
 - ✅ 出勤・退勤の記録
 - 📊 自分の勤怠履歴の閲覧
 - 🔐 セキュアなログイン・ログアウト
-- � パスキー認証ログイン
+- 🔑 パスキー認証ログイン
   - WebAuthn準拠のパスワードレス認証
   - 生体認証またはPINでの簡単ログイン
   - パスキー登録・管理機能
-- � QRコード打刻機能
+- 📱 QRコード打刻機能
   - 従来方式：出勤用・退勤用QRコード（5分間有効）
   - 新方式：ユーザーIDQRコード（自動判定、有効期限なし）
   - スマートフォンカメラによるQRスキャン対応
+- 📱 NFC打刻機能
+  - NFC対応スマートフォンでの打刻
+  - NFCリーダーでの打刻
+  - NFCセットアップ・テスト機能
 
 ### 👨‍💼 管理者機能
 
@@ -47,8 +51,6 @@ http://localhost:8080/kintai
 - ✏️ 勤怠記録の手動追加・削除
 - 📄 CSVエクスポート機能
 - 👥 ユーザー管理（追加、編集、削除、パスワードリセット）
-- 🏢 部署管理（部署の追加・編集・無効化）
-- 🏖️ 休暇申請管理（承認・却下処理）
 - 🏢 部署管理（部署の追加・編集・無効化）
 - 🏖️ 休暇申請管理（承認・却下処理）
 
@@ -60,10 +62,11 @@ http://localhost:8080/kintai
 - **JSTL**: JSPタグライブラリ
 - **PostgreSQL**: データベース
 - **HikariCP**: コネクションプール
-- **CSS**: レスポンシブなUI
-- **WebAuthn4J**: パスキー認証ライブラリ
-- **ZXing**: QRコード生成・読み取りライブラリ
-- **Jackson**: JSON処理
+- **WebAuthn4J**: パスキー認証ライブラリ (0.29.5.RELEASE)
+- **ZXing**: QRコード生成・読み取りライブラリ (3.5.3)
+- **Jackson**: JSON処理 (2.17.0)
+- **JWT**: JSON Web Tokenライブラリ (4.4.0)
+- **SLF4J + Logback**: ロギング
 - **Maven**: ビルドツール
 - **Jetty**: 開発用サーバー
 
@@ -101,29 +104,99 @@ kintai/
 │   │   └── QRCodeUtil.java       # QRコード生成ユーティリティ
 │   └── listener/                  # リスナー
 │       └── DatabaseContextListener.java # DB接続プール管理
-├── src/main/webapp/
-│   ├── jsp/                       # JSPファイル
-│   │   ├── admin_menu.jsp         # 管理者画面
-│   │   ├── employee_menu.jsp      # 従業員画面
-│   │   ├── error.jsp              # エラー画面
-│   │   ├── user_management.jsp    # ユーザー管理画面
-│   │   ├── department_management.jsp # 部署管理画面
-│   │   ├── leave_management.jsp   # 休暇申請管理画面
-│   │   ├── leave_requests.jsp     # 休暇申請画面
-│   │   ├── qr_menu.jsp            # QRコード生成画面
-│   │   └── qr_scanner.jsp         # QRスキャナー画面
-│   ├── WEB-INF/
-│   │   └── web.xml                # Web設定ファイル
-│   ├── login.jsp                  # ログイン画面（パスキー対応）
-│   ├── passkey_register.jsp       # パスキー登録画面
-│   ├── debug_qr_test.html         # QRテスト画面（開発用）
-│   ├── qr_scanner_test.html       # QRスキャナーテスト画面
-│   └── style.css                  # スタイルシート
-├── src/main/resources/
-│   └── schema.sql                 # データベーススキーマ
-├── pom.xml                        # Maven設定
-├── README.md                      # このファイル
-└── DATABASE_SETUP.md              # データベースセットアップガイド
+│   ├── src/main/webapp/
+│   │   ├── jsp/                        # JSPファイル
+│   │   │   ├── admin_menu.jsp          # 管理者画面
+│   │   │   ├── employee_menu.jsp       # 従業員画面
+│   │   │   ├── error.jsp               # エラー画面
+│   │   │   ├── user_management.jsp     # ユーザー管理画面
+│   │   │   ├── department_management.jsp # 部署管理画面
+│   │   │   ├── leave_management.jsp    # 休暇申請管理画面
+│   │   │   ├── leave_requests.jsp      # 休暇申請画面
+│   │   │   ├── qr_menu.jsp             # QRコード生成画面
+│   │   │   ├── qr_scanner.jsp          # QRスキャナー画面
+│   │   │   ├── nfc_attendance.jsp      # NFC打刻画面
+│   │   │   ├── nfc_setup.jsp           # NFCセットアップ画面
+│   │   │   └── test_nfc.jsp            # NFCテスト画面
+│   │   ├── WEB-INF/
+│   │   │   └── web.xml                 # Web設定ファイル
+│   │   ├── login.jsp                   # ログイン画面（パスキー対応）
+│   │   ├── passkey_register.jsp        # パスキー登録画面
+│   │   ├── test_nfc.html               # NFCテストHTML
+│   │   └── style.css                   # スタイルシート
+│   ├── src/main/resources/
+│   │   └── schema.sql                  # データベーススキーマ
+│   ├── src/test/java/                  # テストコード
+│   └── target/                         # ビルド出力
+└── docs/                               # ドキュメント
+    ├── API_SPEC.md                     # API仕様（Webアプリ）
+    ├── DATABASE_SETUP.md               # データベースセットアップガイド
+    ├── TASKS.md                        # タスク管理
+    └── TODO.md                         # TODOリスト
+```
+
+## ER図
+
+```mermaid
+erDiagram
+    DEPARTMENTS {
+        VARCHAR department_id PK "主キー"
+        VARCHAR department_name
+        TEXT description
+        BOOLEAN enabled
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    USERS {
+        VARCHAR username PK "主キー"
+        VARCHAR password
+        VARCHAR role
+        VARCHAR department_id FK "departments.department_id"
+        BOOLEAN enabled
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    ATTENDANCE {
+        SERIAL id PK "主キー"
+        VARCHAR username FK "users.username"
+        TIMESTAMP clock_in
+        TIMESTAMP clock_out
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    LEAVE_REQUESTS {
+        SERIAL id PK "主キー"
+        VARCHAR username FK "申請者: users.username"
+        DATE start_date
+        DATE end_date
+        VARCHAR reason
+        VARCHAR status
+        VARCHAR approved_by FK "承認者: users.username (NULL可)"
+        TIMESTAMP approval_date
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    AUTHENTICATORS {
+        SERIAL id PK "主キー"
+        VARCHAR user_id FK "users.username"
+        BYTEA credential_id "UNIQUE"
+        BYTEA attested_credential_data
+        BIGINT sign_count
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    %% リレーションシップ
+    DEPARTMENTS ||--o{ USERS : "has / 所属"
+    USERS ||--o{ ATTENDANCE : "has / 勤怠記録"
+    USERS ||--o{ LEAVE_REQUESTS : "requests / 休暇申請 (username)"
+    USERS ||--o{ AUTHENTICATORS : "has / 認証器"
+    USERS ||--o{ LEAVE_REQUESTS : "approves (approved_by) / 承認者" 
+
 ```
 
 ## ⚙️ セットアップ

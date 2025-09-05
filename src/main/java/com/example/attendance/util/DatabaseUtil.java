@@ -38,23 +38,49 @@ public class DatabaseUtil {
      * @param conn データベース接続
      */
     public static void executeSchemaScript(Connection conn) {
-        try (InputStream is = DatabaseUtil.class.getClassLoader().getResourceAsStream("schema.sql")) {
-            if (is == null) {
-                System.err.println("schema.sql not found!");
+        try {
+            // 既にテーブルが存在するかチェック
+            if (tablesExist(conn)) {
+                System.out.println("Database tables already exist. Skipping schema initialization.");
                 return;
             }
-            
-            String script = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))
-                .lines()
-                .collect(Collectors.joining("\n"));
 
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute(script);
-                System.out.println("Database schema has been successfully applied.");
+            try (InputStream is = DatabaseUtil.class.getClassLoader().getResourceAsStream("schema.sql")) {
+                if (is == null) {
+                    System.err.println("schema.sql not found!");
+                    return;
+                }
+
+                String script = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))
+                    .lines()
+                    .collect(Collectors.joining("\n"));
+
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(script);
+                    System.out.println("Database schema has been successfully applied.");
+                }
             }
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to execute schema.sql", e);
+        }
+    }
+
+    /**
+     * 必要なテーブルが存在するかチェックします。
+     * @param conn データベース接続
+     * @return テーブルが存在する場合はtrue
+     */
+    private static boolean tablesExist(Connection conn) {
+        try (Statement stmt = conn.createStatement()) {
+            // 主要なテーブルが存在するかチェック
+            stmt.executeQuery("SELECT 1 FROM users LIMIT 1");
+            stmt.executeQuery("SELECT 1 FROM departments LIMIT 1");
+            stmt.executeQuery("SELECT 1 FROM attendance LIMIT 1");
+            return true;
+        } catch (SQLException e) {
+            // テーブルが存在しない場合
+            return false;
         }
     }
 

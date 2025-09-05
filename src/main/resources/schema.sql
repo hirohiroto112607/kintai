@@ -37,12 +37,12 @@ CREATE TABLE IF NOT EXISTS users (
 -- 勤怠記録テーブル
 CREATE TABLE IF NOT EXISTS attendance (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
-    clock_in TIMESTAMP WITH TIME ZONE,
-    clock_out TIMESTAMP WITH TIME ZONE,
+    user_id VARCHAR(255) NOT NULL,
+    check_in_time TIMESTAMP WITH TIME ZONE,
+    check_out_time TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(username) ON DELETE CASCADE
 );
 
 -- 休暇申請テーブル
@@ -74,9 +74,9 @@ CREATE TABLE IF NOT EXISTS authenticators (
 );
 
 -- インデックスの作成
-CREATE INDEX IF NOT EXISTS idx_attendance_username ON attendance(username);
-CREATE INDEX IF NOT EXISTS idx_attendance_clock_in ON attendance(clock_in);
-CREATE INDEX IF NOT EXISTS idx_attendance_username_clock_in ON attendance(username, clock_in);
+CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_check_in_time ON attendance(check_in_time);
+CREATE INDEX IF NOT EXISTS idx_attendance_user_id_check_in ON attendance(user_id, check_in_time);
 CREATE INDEX IF NOT EXISTS idx_users_department_id ON users(department_id);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_username ON leave_requests(username);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
