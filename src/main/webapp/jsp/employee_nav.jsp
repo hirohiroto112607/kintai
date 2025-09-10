@@ -71,6 +71,8 @@
         </form>
         <a href="<c:url value='/qr'/>" class="button" style="background-color: #28a745;">QRコード打刻</a>
         <a href="<c:url value='/jsp/nfc_attendance.jsp'/>" class="button" style="background-color: #6f42c1;">NFC勤怠打刻</a>
+        <a href="<c:url value='/face/authenticate'/>" class="button" style="background-color: #fd7e14;">顔認証打刻</a>
+        <a href="<c:url value='/face/register'/>" class="button" style="background-color: #20c997;">顔登録</a>
         <a href="<c:url value='/leave-requests'/>" class="button" style="background-color: #17a2b8;">休暇申請</a>
         <a href="<c:url value='/passkey_register.jsp'/>" class="button">パスキーを登録</a>
 </nav>

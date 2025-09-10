@@ -73,6 +73,18 @@ CREATE TABLE IF NOT EXISTS authenticators (
     FOREIGN KEY (user_id) REFERENCES users(username) ON DELETE CASCADE
 );
 
+-- 顔データテーブル
+CREATE TABLE IF NOT EXISTS face_data (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    face_descriptor JSONB NOT NULL, -- 顔特徴ベクトル（face-api.jsのFloat32Array）
+    face_image BYTEA, -- 登録時の顔画像（オプション）
+    confidence_threshold DECIMAL(3,2) DEFAULT 0.6, -- 認証時の信頼度閾値
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+);
+
 -- インデックスの作成
 CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_check_in_time ON attendance(check_in_time);
@@ -83,6 +95,7 @@ CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_dates ON leave_requests(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_authenticators_credential_id ON authenticators(credential_id);
+CREATE INDEX IF NOT EXISTS idx_face_data_username ON face_data(username);
 
 -- トリガーの作成
 DROP TRIGGER IF EXISTS update_departments_updated_at ON departments;
@@ -108,6 +121,11 @@ CREATE TRIGGER update_leave_requests_updated_at
 DROP TRIGGER IF EXISTS update_authenticators_updated_at ON authenticators;
 CREATE TRIGGER update_authenticators_updated_at
     BEFORE UPDATE ON authenticators
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_face_data_updated_at ON face_data;
+CREATE TRIGGER update_face_data_updated_at
+    BEFORE UPDATE ON face_data
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- サンプルデータの挿入
