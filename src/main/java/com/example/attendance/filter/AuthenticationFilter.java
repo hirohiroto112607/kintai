@@ -7,7 +7,6 @@ import java.io.PrintWriter;
 import com.example.attendance.dao.UserDAO;
 import com.example.attendance.dto.User;
 import com.example.attendance.util.TokenUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;

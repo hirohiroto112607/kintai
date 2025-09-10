@@ -18,8 +18,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>顔認証 - 勤怠管理システム</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/style.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.2.0/dist/face-api.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.min.js"></script>
+    <!-- 初期化スクリプト -->
+    <script src="${pageContext.request.contextPath}/js/face-api-init.js"></script>
     <style>
         .face-auth-container {
             max-width: 800px;
@@ -263,52 +264,60 @@
             }
         }
 
-        // モデル読み込み
+        // モデル読み込み (face-api-init.js を使用)
         async function loadModels() {
             try {
+                showStatus('ライブラリを初期化中...', 'info');
+
+                // 重複読み込みを防ぐ
+                if (modelsLoaded) {
+                    console.log('Models already loaded');
+                    showStatus('モデル読み込み完了', 'success');
+                    detectionStatus.textContent = '認証を開始してください';
+                    return;
+                }
+
+                // 安全な初期化
+                console.log('Starting safe initialization...');
+                const initResult = await window.FaceAPIUtils.safeInitialize();
+                
+                if (!initResult.success) {
+                    throw new Error('ライブラリの初期化に失敗しました');
+                }
+
                 showStatus('モデルを読み込み中...', 'info');
 
-                // TFが初期化されるのを待つ
-                if (typeof tf !== 'undefined' && tf.ready) {
-                    await tf.ready();
-                }
-
-                // まずはアプリ内ローカル配下の models ディレクトリを試す（デプロイ済みであれば /{context}/models/... で参照可能）
+                // モデル読み込み
                 const localBaseUrl = '${pageContext.request.contextPath}/models/';
-                // それがダメな場合に試す CDN URL（フォールバック）
-                const cdnBaseUrl = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.2.0/model/';
+                const cdnBaseUrl = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
 
-                async function loadFrom(base) {
-                    // TinyFaceDetectorモデルを読み込み
-                    await faceapi.nets.tinyFaceDetector.loadFromUri(base + 'tiny_face_detector/');
-                    await faceapi.nets.faceLandmark68Net.loadFromUri(base + 'face_landmark_68/');
-                    await faceapi.nets.faceRecognitionNet.loadFromUri(base + 'face_recognition/');
-                }
-
-                // まずローカルを試し、失敗したら CDN にフォールバックする
-                try {
-                    await loadFrom(localBaseUrl);
-                    console.log('Loaded models from local:', localBaseUrl);
-                } catch (localErr) {
-                    console.warn('Local model load failed, trying CDN:', localErr);
-                    try {
-                        await loadFrom(cdnBaseUrl);
-                        console.log('Loaded models from CDN:', cdnBaseUrl);
-                    } catch (cdnErr) {
-                        console.error('CDN model load failed:', cdnErr);
-                        showStatus('モデル読み込み失敗。ネットワーク接続またはモデルファイルの配置を確認してください。', 'error');
-                        throw cdnErr;
-                    }
+                console.log('Loading models...');
+                const loadResult = await window.FaceAPIUtils.loadModelsWithFallback(localBaseUrl, cdnBaseUrl);
+                
+                if (!loadResult.success) {
+                    throw new Error(`モデル読み込み失敗: ${loadResult.error}`);
                 }
 
                 modelsLoaded = true;
                 showStatus('モデル読み込み完了', 'success');
                 detectionStatus.textContent = '認証を開始してください';
+                
+                console.log('✓ All models loaded successfully');
+                console.log('State:', window.FaceAPIUtils.getState());
 
             } catch (error) {
-                console.error('モデル読み込みエラー:', error);
-                showStatus('モデル読み込みに失敗しました。ネットワーク接続を確認してください: ' + (error.message || error), 'error');
+                console.error('Model loading error:', error);
+                showStatus('モデル読み込みに失敗しました: ' + (error.message || error), 'error');
                 detectionStatus.textContent = 'モデル読み込みエラー';
+                modelsLoaded = false;
+                
+                // 詳細なデバッグ情報を出力
+                console.log('Debug info:', {
+                    tf: typeof tf,
+                    faceapi: typeof faceapi,
+                    FaceAPIUtils: typeof window.FaceAPIUtils,
+                    state: window.FaceAPIUtils ? window.FaceAPIUtils.getState() : 'unavailable'
+                });
             }
         }
 
@@ -385,10 +394,7 @@
                 if (!modelsLoaded || !isAuthenticating || video.videoWidth === 0) return;
 
                 try {
-                    const detections = await faceapi.detectAllFaces(
-                        video,
-                        new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 })
-                    ).withFaceLandmarks().withFaceDescriptors();
+                    const detections = await safeDetectFaces(video);
 
                     faceCount.textContent = `検出された顔: ${detections.length}`;
 
@@ -428,6 +434,62 @@
             if (faceDetectionInterval) {
                 clearInterval(faceDetectionInterval);
                 faceDetectionInterval = null;
+            }
+        }
+
+        // 安全な顔検出関数（register.jsp と同一の防御実装）
+        async function safeDetectFaces(input) {
+            try {
+                // TensorFlow.jsとface-api.jsの状態確認
+                if (typeof tf === 'undefined' || !tf.getBackend) {
+                    throw new Error('TensorFlow.js backend not ready');
+                }
+
+                if (typeof faceapi === 'undefined' || !faceapi.detectAllFaces) {
+                    throw new Error('face-api.js not ready');
+                }
+
+                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 });
+
+                // 最初にチェーン呼び出しが可能かどうかをチェックして安全に実行
+                try {
+                    const chain = faceapi.detectAllFaces(input, options);
+                    console.log('detectAllFaces returned:', typeof chain);
+
+                    if (chain && typeof chain.withFaceLandmarks === 'function' && typeof chain.withFaceDescriptors === 'function') {
+                        // 通常のチェーン呼び出し
+                        const detections = await chain.withFaceLandmarks().withFaceDescriptors();
+                        return detections || [];
+                    } else {
+                        // チェーンメソッドが存在しない場合はログを出して詳細エラーを投げる
+                        console.warn('face-api chaining methods missing', {
+                            withFaceLandmarks: chain && typeof chain.withFaceLandmarks,
+                            withFaceDescriptors: chain && typeof chain.withFaceDescriptors,
+                            faceapi_detectAllFaces_type: typeof faceapi.detectAllFaces
+                        });
+                        throw new Error('face-api chaining methods not available; possible version mismatch or duplicate library load');
+                    }
+                } catch (chainError) {
+                    console.error('Chained face detection failed:', chainError);
+                    // 追加の診断情報を出力して、根本原因の特定を容易にする
+                    console.log('Diagnostic info:', {
+                        tf: typeof tf,
+                        tfBackend: (typeof tf !== 'undefined' && tf.getBackend) ? tf.getBackend() : 'unavailable',
+                        faceapi: typeof faceapi,
+                        faceapi_nets: faceapi && faceapi.nets ? Object.keys(faceapi.nets) : 'unavailable',
+                        faceapi_detectAllFaces: String(faceapi.detectAllFaces).slice(0,200)
+                    });
+
+                    // 明確な情報付きで再送出
+                    throw new Error('Face detection chain failed: ' + (chainError && chainError.message ? chainError.message : chainError));
+                }
+
+            } catch (error) {
+                console.error('Safe detect faces error:', error);
+                if (error && error.message && error.message.includes('not a function')) {
+                    console.warn('Function call error detected, consider checking for multiple face-api/tfjs versions loaded or incompatible versions');
+                }
+                throw error;
             }
         }
 
@@ -511,9 +573,49 @@
         stopAuthBtn.addEventListener('click', stopAuthentication);
 
         // ページ読み込み時に初期化
-        window.addEventListener('load', () => {
-            loadModels();
-            checkRegistrationStatus();
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            
+            // ライブラリの読み込み完了を確実に待つ
+            function waitForLibrariesAndLoad() {
+                const checkInterval = 100; // 100ms間隔でチェック
+                const maxWaitTime = 10000; // 最大10秒待機
+                let waitTime = 0;
+                
+                const checkLibraries = () => {
+                    // 必要なオブジェクトの存在確認
+                    const tfReady = typeof tf !== 'undefined' && tf.version;
+                    const faceapiReady = typeof faceapi !== 'undefined' && faceapi.nets;
+                    const utilsReady = typeof window.FaceAPIUtils !== 'undefined';
+                    
+                    console.log('Library check:', {
+                        tf: tfReady,
+                        faceapi: faceapiReady,
+                        utils: utilsReady,
+                        waitTime: waitTime
+                    });
+                    
+                    if (tfReady && faceapiReady && utilsReady) {
+                        console.log('All libraries ready, starting initialization...');
+                        loadModels();
+                        checkRegistrationStatus();
+                        return;
+                    }
+                    
+                    waitTime += checkInterval;
+                    if (waitTime >= maxWaitTime) {
+                        console.error('Library loading timeout');
+                        showStatus('ライブラリの読み込みがタイムアウトしました', 'error');
+                        return;
+                    }
+                    
+                    setTimeout(checkLibraries, checkInterval);
+                };
+                
+                checkLibraries();
+            }
+            
+            waitForLibrariesAndLoad();
         });
 
         // ページ離脱時にカメラを停止

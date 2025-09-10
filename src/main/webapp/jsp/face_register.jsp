@@ -19,17 +19,7 @@
     <title>顔登録 - 勤怠管理システム</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/style.css">
     <!-- TensorFlow.js を先に読み込み（互換性の良いバージョン） -->
-    <script>
-        // TensorFlow.jsの重複警告を抑制
-        window.tf = window.tf || undefined;
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-    <!-- face-api.js を後に読み込み（互換バージョン） -->
-    <script>
-        // face-api.jsの重複警告を抑制
-        window.faceapi = window.faceapi || undefined;
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.min.js"></script>
     <!-- 初期化スクリプト -->
     <script src="${pageContext.request.contextPath}/js/face-api-init.js"></script>
     <style>
@@ -200,7 +190,7 @@
 
                 // モデル読み込み
                 const localBaseUrl = '${pageContext.request.contextPath}/models/';
-                const cdnBaseUrl = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/';
+                const cdnBaseUrl = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
 
                 console.log('Loading models...');
                 const loadResult = await window.FaceAPIUtils.loadModelsWithFallback(localBaseUrl, cdnBaseUrl);
@@ -332,33 +322,54 @@
         async function safeDetectFaces(input) {
             try {
                 // TensorFlow.jsとface-api.jsの状態確認
-                if (!tf || !tf.getBackend()) {
+                if (typeof tf === 'undefined' || !tf.getBackend) {
                     throw new Error('TensorFlow.js backend not ready');
                 }
 
-                if (!faceapi || !faceapi.detectAllFaces) {
+                if (typeof faceapi === 'undefined' || !faceapi.detectAllFaces) {
                     throw new Error('face-api.js not ready');
                 }
 
-                // 顔検出の実行
-                const detections = await faceapi.detectAllFaces(
-                    input,
-                    new faceapi.TinyFaceDetectorOptions({ 
-                        inputSize: 512, 
-                        scoreThreshold: 0.5 
-                    })
-                ).withFaceLandmarks().withFaceDescriptors();
+                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 });
 
-                return detections || [];
+                // 最初にチェーン呼び出しが可能かどうかをチェックして安全に実行
+                try {
+                    const chain = faceapi.detectAllFaces(input, options);
+                    console.log('detectAllFaces returned:', typeof chain);
+
+                    if (chain && typeof chain.withFaceLandmarks === 'function' && typeof chain.withFaceDescriptors === 'function') {
+                        // 通常のチェーン呼び出し
+                        const detections = await chain.withFaceLandmarks().withFaceDescriptors();
+                        return detections || [];
+                    } else {
+                        // チェーンメソッドが存在しない場合はログを出して詳細エラーを投げる
+                        console.warn('face-api chaining methods missing', {
+                            withFaceLandmarks: chain && typeof chain.withFaceLandmarks,
+                            withFaceDescriptors: chain && typeof chain.withFaceDescriptors,
+                            faceapi_detectAllFaces_type: typeof faceapi.detectAllFaces
+                        });
+                        throw new Error('face-api chaining methods not available; possible version mismatch or duplicate library load');
+                    }
+                } catch (chainError) {
+                    console.error('Chained face detection failed:', chainError);
+                    // 追加の診断情報を出力して、根本原因の特定を容易にする
+                    console.log('Diagnostic info:', {
+                        tf: typeof tf,
+                        tfBackend: (typeof tf !== 'undefined' && tf.getBackend) ? tf.getBackend() : 'unavailable',
+                        faceapi: typeof faceapi,
+                        faceapi_nets: faceapi && faceapi.nets ? Object.keys(faceapi.nets) : 'unavailable',
+                        faceapi_detectAllFaces: String(faceapi.detectAllFaces).slice(0,200)
+                    });
+
+                    // 明確な情報付きで再送出
+                    throw new Error('Face detection chain failed: ' + (chainError && chainError.message ? chainError.message : chainError));
+                }
+
             } catch (error) {
                 console.error('Safe detect faces error:', error);
-                
-                // エラーの種類に応じた処理
-                if (error.message.includes('not a function')) {
-                    // 関数呼び出しエラー - ライブラリの再初期化が必要かも
-                    console.warn('Function call error detected, may need re-initialization');
+                if (error && error.message && error.message.includes('not a function')) {
+                    console.warn('Function call error detected, consider checking for multiple face-api/tfjs versions loaded or incompatible versions');
                 }
-                
                 throw error;
             }
         }
