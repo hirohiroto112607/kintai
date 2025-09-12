@@ -55,6 +55,11 @@
             <button id="passkey-login-button" type="button">パスキー認証</button>
             <p id="passkey-message" class="message"></p>
         </div>
+
+        <div class="face-login">
+            <h2>顔認証でログイン</h2>
+            <a href="${pageContext.request.contextPath}/face/authenticate" class="button">顔認証でログイン</a>
+        </div>
     </div>
 
     <script>

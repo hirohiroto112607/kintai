@@ -73,4 +73,5 @@
         <a href="<c:url value='/jsp/nfc_attendance.jsp'/>" class="button" style="background-color: #6f42c1;">NFC勤怠打刻</a>
         <a href="<c:url value='/leave-requests'/>" class="button" style="background-color: #17a2b8;">休暇申請</a>
         <a href="<c:url value='/passkey_register.jsp'/>" class="button">パスキーを登録</a>
+        <a href="<c:url value='/jsp/face_register.jsp'/>" class="button">顔を登録</a>
 </nav>

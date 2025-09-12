@@ -104,6 +104,7 @@
                     <webApp>
                         <contextPath>/kintai</contextPath>
                     </webApp>
+                    <scan>0</scan>
                 </configuration>
             </plugin>
         </plugins>
