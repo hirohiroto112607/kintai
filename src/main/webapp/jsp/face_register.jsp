@@ -98,12 +98,48 @@
             color: #666;
             margin-top: 10px;
         }
+        .form-group {
+            margin: 20px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .form-group input[type="text"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        .form-text {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.875em;
+            color: #6c757d;
+        }
+        .navigation {
+            margin-top: 30px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="face-register-container">
         <h1>顔登録</h1>
         <p>勤怠管理で使用する顔を登録します。カメラの前に正面向いて、顔が枠内に収まるようにしてください。</p>
+
+        <div class="form-group">
+            <label for="face-label">顔データのラベル:</label>
+            <input type="text" id="face-label" name="faceLabel" placeholder="例: メイン、横顔、笑顔" maxlength="50" value="メイン">
+            <small class="form-text">この顔データに名前をつけてください（最大50文字）</small>
+        </div>
 
         <div class="face-guide">
             <h3>📸 撮影のコツ</h3>
@@ -112,6 +148,7 @@
                 <li>明るい場所で撮影すると認識精度が向上します</li>
                 <li>眼鏡や帽子は外して撮影してください</li>
                 <li>表情は自然な状態で撮影してください</li>
+                <li>複数の角度（正面、やや右向き、やや左向き）で登録すると認識精度が向上します</li>
             </ul>
         </div>
 
@@ -456,6 +493,10 @@
 
                 formData.append('faceDescriptor', JSON.stringify(descriptorArray));
                 formData.append('confidenceThreshold', '0.6');
+                
+                // ラベルを追加
+                const faceLabel = document.getElementById('face-label').value.trim() || 'メイン';
+                formData.append('faceLabel', faceLabel);
 
                 // 画像データをBlobに変換して追加
                 try {
@@ -573,5 +614,9 @@
         // ページ離脱時にカメラを停止
         window.addEventListener('beforeunload', stopCamera);
     </script>
+
+    <div class="navigation">
+        <a href="${pageContext.request.contextPath}/face/manage" class="btn-secondary">顔データ管理に戻る</a>
+    </div>
 </body>
 </html>

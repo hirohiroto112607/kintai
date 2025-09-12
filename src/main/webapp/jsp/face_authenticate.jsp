@@ -103,6 +103,17 @@
         let lastMatchedUser = null;  // 最後にマッチしたユーザー
         const REQUIRED_CONSECUTIVE_MATCHES = 3; // 認証に必要な連続マッチ回数
         
+        // ユーザー名マッピング: uniqueLabel -> originalUsername
+        const usernameMapping = {};
+        labeledFaceDescriptorsJson.forEach(ld => {
+            if (ld.originalUsername) {
+                usernameMapping[ld.username] = ld.originalUsername;
+            } else {
+                usernameMapping[ld.username] = ld.username; // フォールバック
+            }
+        });
+        console.log('Username mapping:', usernameMapping);
+        
         // デバッグ情報を更新する関数
         function updateDebugInfo(info) {
             const timestamp = new Date().toLocaleTimeString();
@@ -256,22 +267,26 @@
                             updateDebugInfo('連続マッチ: ' + consecutiveMatches + '/' + REQUIRED_CONSECUTIVE_MATCHES + ' (' + bestMatch.label + ')');
                             
                             if (consecutiveMatches >= REQUIRED_CONSECUTIVE_MATCHES) {
+                                // 元のユーザー名を取得
+                                const originalUsername = usernameMapping[bestMatch.label] || bestMatch.label;
+                                
                                 // 十分な連続マッチが確認できた場合のみログイン実行
-                                lastDetectedUser = bestMatch.label;
+                                lastDetectedUser = originalUsername;
                                 statusMessage.className = 'status-message status-success';
-                                statusMessage.textContent = '認証成功: ' + bestMatch.label + 'さん (距離: ' + bestMatch.distance.toFixed(3) + ', 連続: ' + consecutiveMatches + ')';
+                                statusMessage.textContent = '認証成功: ' + originalUsername + 'さん (距離: ' + bestMatch.distance.toFixed(3) + ', 連続: ' + consecutiveMatches + ')';
                                 
                                 // 手動ログインボタンを表示
                                 manualLoginBtn.style.display = 'inline-block';
-                                manualLoginBtn.textContent = bestMatch.label + 'としてログイン';
+                                manualLoginBtn.textContent = originalUsername + 'としてログイン';
                                 
                                 // 自動ログインも実行（従来の動作）
                                 stopCamera();
-                                await performLogin(bestMatch.label);
+                                await performLogin(originalUsername);
                             } else {
                                 // まだ十分な連続マッチが確認できていない
+                                const originalUsername = usernameMapping[bestMatch.label] || bestMatch.label;
                                 statusMessage.className = 'status-message status-warning';
-                                statusMessage.textContent = '認証中: ' + bestMatch.label + 'さん (' + consecutiveMatches + '/' + REQUIRED_CONSECUTIVE_MATCHES + ')';
+                                statusMessage.textContent = '認証中: ' + originalUsername + 'さん (' + consecutiveMatches + '/' + REQUIRED_CONSECUTIVE_MATCHES + ')';
                                 manualLoginBtn.style.display = 'none';
                             }
                             

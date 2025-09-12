@@ -45,8 +45,12 @@ public class FaceLoginServlet extends HttpServlet {
         
         if (username != null && !username.isEmpty()) {
             try {
-                logger.info("Attempting to find user: " + username);
-                User user = userDAO.findByUsername(username);
+                // 複数顔データ対応: username_faceIndex形式から元のユーザー名を抽出
+                String actualUsername = extractOriginalUsername(username);
+                logger.info("Original username extracted: " + actualUsername);
+                
+                logger.info("Attempting to find user: " + actualUsername);
+                User user = userDAO.findByUsername(actualUsername);
                 if (user != null) {
                     logger.info("User found: " + user.getUsername());
                     HttpSession session = request.getSession();
@@ -54,7 +58,7 @@ public class FaceLoginServlet extends HttpServlet {
                     logger.info("Session created with user: " + user.getUsername());
                     response.setStatus(HttpServletResponse.SC_OK);
                 } else {
-                    logger.warning("User not found: " + username);
+                    logger.warning("User not found: " + actualUsername);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 }
             } catch (Exception e) {
@@ -70,13 +74,40 @@ public class FaceLoginServlet extends HttpServlet {
         logger.info("Response status set to: " + response.getStatus());
     }
     
+    /**
+     * 複数顔データ形式のユーザー名から元のユーザー名を抽出
+     * 例: "employee1_2" -> "employee1"
+     * 例: "employee1" -> "employee1" (そのまま)
+     */
+    private String extractOriginalUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        
+        // "_数字"の形式で終わっている場合は、それを削除
+        int lastUnderscoreIndex = username.lastIndexOf('_');
+        if (lastUnderscoreIndex > 0) {
+            String suffix = username.substring(lastUnderscoreIndex + 1);
+            // 数字のみの場合は face_index とみなす
+            if (suffix.matches("\\d+")) {
+                return username.substring(0, lastUnderscoreIndex);
+            }
+        }
+        
+        // そのまま返す
+        return username;
+    }
+    
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String username = request.getParameter("username");
 
         if (username != null && !username.isEmpty()) {
             try {
-                User user = userDAO.findByUsername(username);
+                // 複数顔データ対応: username_faceIndex形式から元のユーザー名を抽出
+                String actualUsername = extractOriginalUsername(username);
+                
+                User user = userDAO.findByUsername(actualUsername);
                 if (user != null) {
                     HttpSession session = request.getSession();
                     session.setAttribute("user", user);

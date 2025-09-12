@@ -2,6 +2,7 @@
 /Users/hiroto/hiroto/kintai-systems/kintai/src/main/java/com/example/attendance/controller/DepartmentServlet.java
 /Users/hiroto/hiroto/kintai-systems/kintai/src/main/java/com/example/attendance/controller/FaceAuthenticationServlet.java
 /Users/hiroto/hiroto/kintai-systems/kintai/src/main/java/com/example/attendance/controller/FaceLoginServlet.java
+/Users/hiroto/hiroto/kintai-systems/kintai/src/main/java/com/example/attendance/controller/FaceManagementServlet.java
 /Users/hiroto/hiroto/kintai-systems/kintai/src/main/java/com/example/attendance/controller/FaceRegistrationServlet.java
 /Users/hiroto/hiroto/kintai-systems/kintai/src/main/java/com/example/attendance/controller/FaceStatusServlet.java
 /Users/hiroto/hiroto/kintai-systems/kintai/src/main/java/com/example/attendance/controller/LeaveRequestServlet.java
