@@ -18,9 +18,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>顔登録 - 勤怠管理システム</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/style.css">
-    <!-- TensorFlow.js を先に読み込み（互換性の良いバージョン） -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.2.2/dist/face-api.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.4/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <!-- 初期化スクリプト -->
     <script src="${pageContext.request.contextPath}/js/face-api-init.js"></script>
     <style>
@@ -150,7 +149,7 @@
     <script>
         let video = document.getElementById('video');
         let canvas = document.getElementById('canvas');
-        let ctx = canvas.getContext('2d');
+        let ctx = canvas.getContext('2d', { willReadFrequently: true });
         let stream = null;
         let faceDetectionInterval = null;
         let modelsLoaded = false;
@@ -331,14 +330,14 @@
                     throw new Error('face-api.js not ready');
                 }
 
-                // 顔検出の実行
+                // 顔検出の実行（認証時と全く同じ設定）
                 const detections = await faceapi.detectAllFaces(
                     input,
                     new faceapi.TinyFaceDetectorOptions({ 
                         inputSize: 512, 
                         scoreThreshold: 0.5 
                     })
-                ).withFaceLandmarks().withFaceDescriptors();
+                ).withFaceLandmarks().withFaceDescriptors(); // faceRecognitionNetで128次元の特徴ベクトルを生成
 
                 return detections || [];
             } catch (error) {

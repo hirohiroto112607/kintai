@@ -7,7 +7,6 @@ import java.io.PrintWriter;
 import com.example.attendance.dao.UserDAO;
 import com.example.attendance.dto.User;
 import com.example.attendance.util.TokenUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -55,7 +54,12 @@ public class AuthenticationFilter implements Filter {
         // 認証が不要なパスをチェック
         if (path.equals("/login") || path.equals("/login.jsp") || 
             path.startsWith("/style.css") || path.startsWith("/static/") ||
-            path.startsWith("/passkey/")) {
+            path.startsWith("/passkey/") || 
+            path.startsWith("/face/") ||           // 顔認証関連のパス
+            path.startsWith("/js/") ||             // JavaScriptファイル
+            path.startsWith("/models/") ||         // Face-APIモデルファイル
+            path.equals("/debug_face.jsp") ||      // デバッグページ
+            path.equals("/error.jsp")) {           // エラーページ
             System.out.println("Skipping authentication for: " + path);
             chain.doFilter(request, response);
             return;

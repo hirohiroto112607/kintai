@@ -28,6 +28,9 @@
                     <c:when test="${param.error == 'passkey_failed'}">
                         パスキー認証に失敗しました: ${fn:escapeXml(param.errorMessage)}
                     </c:when>
+                    <c:when test="${param.error == 'face_auth_failed'}">
+                        顔認証エラー: ${fn:escapeXml(param.errorMessage)}
+                    </c:when>
                     <c:otherwise>
                         ログイン中にエラーが発生しました。
                     </c:otherwise>

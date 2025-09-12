@@ -119,28 +119,31 @@ async function safeInitialize() {
 async function loadFaceAPIModels(baseUrl, retryCount = 0) {
     const maxRetries = 2;
     
+    // baseURLの末尾にスラッシュを確実に追加
+    const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+    
     const modelsToLoad = [
         {
             name: 'tinyFaceDetector',
             path: 'tiny_face_detector/',
-            loader: () => faceapi.nets.tinyFaceDetector.loadFromUri(baseUrl + 'tiny_face_detector/')
+            loader: () => faceapi.nets.tinyFaceDetector.loadFromUri(normalizedBaseUrl + 'tiny_face_detector/')
         },
         {
             name: 'faceLandmark68Net', 
             path: 'face_landmark_68/',
-            loader: () => faceapi.nets.faceLandmark68Net.loadFromUri(baseUrl + 'face_landmark_68/')
+            loader: () => faceapi.nets.faceLandmark68Net.loadFromUri(normalizedBaseUrl + 'face_landmark_68/')
         },
         {
             name: 'faceRecognitionNet',
             path: 'face_recognition/',
-            loader: () => faceapi.nets.faceRecognitionNet.loadFromUri(baseUrl + 'face_recognition/')
+            loader: () => faceapi.nets.faceRecognitionNet.loadFromUri(normalizedBaseUrl + 'face_recognition/')
         }
     ];
 
     const results = [];
     for (const model of modelsToLoad) {
         try {
-            console.log(`Loading ${model.name} from ${baseUrl + model.path}...`);
+            console.log(`Loading ${model.name} from ${normalizedBaseUrl + model.path}...`);
             await model.loader();
             console.log(`✓ Successfully loaded ${model.name}`);
             results.push({ name: model.name, success: true });
@@ -150,7 +153,7 @@ async function loadFaceAPIModels(baseUrl, retryCount = 0) {
                 name: model.name, 
                 success: false, 
                 error: error.message,
-                fullUrl: baseUrl + model.path
+                fullUrl: normalizedBaseUrl + model.path
             });
         }
     }
@@ -174,7 +177,7 @@ async function loadModelsWithFallback(localBaseUrl, cdnBaseUrl) {
 
         console.log('=== Starting model loading ===');
         console.log('Local URL:', localBaseUrl);
-        const cdnUrl = cdnBaseUrl || 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.2.0/model/';
+        const cdnUrl = cdnBaseUrl || 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/';
         console.log('CDN URL:', cdnUrl);
 
         // まずローカルから試行
