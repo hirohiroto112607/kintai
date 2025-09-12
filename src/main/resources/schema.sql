@@ -48,16 +48,18 @@ CREATE TABLE IF NOT EXISTS attendance (
 -- 休暇申請テーブル
 CREATE TABLE IF NOT EXISTS leave_requests (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
+    user_id VARCHAR(50) NOT NULL,
+    leave_type VARCHAR(20) NOT NULL DEFAULT 'paid_leave' CHECK (leave_type IN ('paid_leave', 'sick_leave', 'special_leave', 'other')),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    reason VARCHAR(255),
-    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-    approved_by VARCHAR(255),
+    reason TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    approved_by VARCHAR(50),
     approval_date TIMESTAMP WITH TIME ZONE,
+    rejection_reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(username) ON DELETE CASCADE,
     FOREIGN KEY (approved_by) REFERENCES users(username) ON DELETE SET NULL
 );
 
@@ -78,7 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_attendance_user_id ON attendance(user_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_check_in_time ON attendance(check_in_time);
 CREATE INDEX IF NOT EXISTS idx_attendance_user_id_check_in ON attendance(user_id, check_in_time);
 CREATE INDEX IF NOT EXISTS idx_users_department_id ON users(department_id);
-CREATE INDEX IF NOT EXISTS idx_leave_requests_username ON leave_requests(username);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_user_id ON leave_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_dates ON leave_requests(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);

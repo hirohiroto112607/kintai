@@ -64,6 +64,8 @@
             <th>日数</th>
             <th>状態</th>
             <th>承認者</th>
+            <th>処理日</th>
+            <th>却下理由</th>
         </tr>
         </thead>
         <tbody>
@@ -92,7 +94,17 @@
                         <c:otherwise><c:out value="${request.status}"/></c:otherwise>
                     </c:choose>
                 </td>
-                <td><c:out value="${request.approverUserId}"/></td>
+                <td><c:out value="${request.approvedBy}"/></td>
+                <td>
+                    <c:if test="${request.approvalDate != null}">
+                        ${request.approvalDate.toString().substring(0, 10)}
+                    </c:if>
+                </td>
+                <td>
+                    <c:if test="${request.status == 'rejected' || request.rejected}">
+                        <c:out value="${request.rejectionReason}"/>
+                    </c:if>
+                </td>
             </tr>
         </c:forEach>
         </tbody>

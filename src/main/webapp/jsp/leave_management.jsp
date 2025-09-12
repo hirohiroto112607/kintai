@@ -48,6 +48,9 @@
             <th>期間</th>
             <th>日数</th>
             <th>理由</th>
+            <th>状態</th>
+            <th>承認者</th>
+            <th>処理日</th>
             <th>操作</th>
         </tr>
         </thead>
@@ -71,18 +74,34 @@
                 </td>
                 <td><c:out value="${request.daysCount}"/>日</td>
                 <td><c:out value="${request.reason}"/></td>
+                <td>
+                    <c:choose>
+                        <c:when test="${request.status == 'pending' || request.pending}">申請中</c:when>
+                        <c:when test="${request.status == 'approved' || request.approved}">承認済み</c:when>
+                        <c:when test="${request.status == 'rejected' || request.rejected}">却下</c:when>
+                        <c:otherwise><c:out value="${request.status}"/></c:otherwise>
+                    </c:choose>
+                </td>
+                <td><c:out value="${request.approvedBy}"/></td>
+                <td>
+                    <c:if test="${request.approvalDate != null}">
+                        ${request.approvalDate.toString().substring(0, 10)}
+                    </c:if>
+                </td>
                 <td class="table-actions">
-                    <form action="<c:url value='/leave-requests'/>" method="post">
-                        <input type="hidden" name="action" value="approve">
-                        <input type="hidden" name="requestId" value="${request.id}">
-                        <input type="submit" value="承認" class="button">
-                    </form>
-                    <form action="<c:url value='/leave-requests'/>" method="post" onsubmit="return confirmReject(this);">
-                        <input type="hidden" name="action" value="reject">
-                        <input type="hidden" name="requestId" value="${request.id}">
-                        <input type="text" name="rejectionReason" class="rejection-reason" placeholder="却下理由">
-                        <input type="submit" value="却下" class="button danger">
-                    </form>
+                    <c:if test="${request.status == 'pending' || request.pending}">
+                        <form action="<c:url value='/leave-requests'/>" method="post">
+                            <input type="hidden" name="action" value="approve">
+                            <input type="hidden" name="requestId" value="${request.id}">
+                            <input type="submit" value="承認" class="button">
+                        </form>
+                        <form action="<c:url value='/leave-requests'/>" method="post" onsubmit="return confirmReject(this);">
+                            <input type="hidden" name="action" value="reject">
+                            <input type="hidden" name="requestId" value="${request.id}">
+                            <input type="text" name="rejectionReason" class="rejection-reason" placeholder="却下理由">
+                            <input type="submit" value="却下" class="button danger">
+                        </form>
+                    </c:if>
                 </td>
             </tr>
         </c:forEach>
@@ -100,6 +119,7 @@
             <th>状態</th>
             <th>承認者</th>
             <th>処理日</th>
+            <th>却下理由</th>
         </tr>
         </thead>
         <tbody>
@@ -128,10 +148,15 @@
                         <c:otherwise><c:out value="${request.status}"/></c:otherwise>
                     </c:choose>
                 </td>
-                <td><c:out value="${request.approverUserId}"/></td>
+                <td><c:out value="${request.approvedBy}"/></td>
                 <td>
-                    <c:if test="${request.reviewedAt != null}">
-                        ${request.reviewedAt.toString().substring(0, 10)}
+                    <c:if test="${request.approvalDate != null}">
+                        ${request.approvalDate.toString().substring(0, 10)}
+                    </c:if>
+                </td>
+                <td>
+                    <c:if test="${request.status == 'rejected' || request.rejected}">
+                        <c:out value="${request.rejectionReason}"/>
                     </c:if>
                 </td>
             </tr>

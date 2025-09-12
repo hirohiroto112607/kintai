@@ -101,11 +101,28 @@ public class LeaveRequestServlet extends HttpServlet {
             return;
         }
         try {
-            int requestId = Integer.parseInt(req.getParameter("requestId"));
-            repository.approveRequest(requestId, user.getUsername());
-            session.setAttribute("successMessage", "申請を承認しました。");
+            String requestIdStr = req.getParameter("requestId");
+            
+            if (requestIdStr == null || requestIdStr.trim().isEmpty()) {
+                session.setAttribute("errorMessage", "申請IDが指定されていません。");
+                return;
+            }
+            
+            int requestId = Integer.parseInt(requestIdStr);
+            boolean success = repository.approveRequest(requestId, user.getUsername());
+            
+            if (success) {
+                session.setAttribute("successMessage", "申請を承認しました。");
+            } else {
+                session.setAttribute("errorMessage", "申請の承認に失敗しました。");
+            }
+        } catch (NumberFormatException e) {
+            System.err.println("Invalid request ID format: " + req.getParameter("requestId"));
+            session.setAttribute("errorMessage", "申請IDの形式が正しくありません。");
         } catch (Exception e) {
-            session.setAttribute("errorMessage", e + "承認の処理中にエラーが発生しました。");
+            System.err.println("Error in handleApprove: " + e.getMessage());
+            e.printStackTrace();
+            session.setAttribute("errorMessage", "承認の処理中にエラーが発生しました：" + e.getMessage());
         }
     }
 
@@ -115,15 +132,44 @@ public class LeaveRequestServlet extends HttpServlet {
             return;
         }
         try {
-            int requestId = Integer.parseInt(req.getParameter("requestId"));
+            String requestIdStr = req.getParameter("requestId");
             String rejectionReason = req.getParameter("rejectionReason");
+            
+            // デバッグ用ログ
+            System.out.println("DEBUG - handleReject called");
+            System.out.println("DEBUG - requestId parameter: " + requestIdStr);
+            System.out.println("DEBUG - rejectionReason parameter: " + rejectionReason);
+            
+            if (requestIdStr == null || requestIdStr.trim().isEmpty()) {
+                session.setAttribute("errorMessage", "申請IDが指定されていません。");
+                return;
+            }
+            
+            int requestId = Integer.parseInt(requestIdStr);
+            
             if (rejectionReason == null || rejectionReason.isBlank()) {
                 rejectionReason = req.getParameter("promptReason");
+                if (rejectionReason == null || rejectionReason.isBlank()) {
+                    rejectionReason = "理由未記入";
+                }
             }
-            repository.rejectRequest(requestId, user.getUsername(), rejectionReason);
-            session.setAttribute("successMessage", "申請を却下しました。");
+            
+            System.out.println("DEBUG - About to call repository.rejectRequest with ID: " + requestId + ", reason: " + rejectionReason);
+            
+            boolean success = repository.rejectRequest(requestId, user.getUsername(), rejectionReason);
+            
+            if (success) {
+                session.setAttribute("successMessage", "申請を却下しました。");
+            } else {
+                session.setAttribute("errorMessage", "申請の却下に失敗しました。");
+            }
+        } catch (NumberFormatException e) {
+            System.err.println("Invalid request ID format: " + req.getParameter("requestId"));
+            session.setAttribute("errorMessage", "申請IDの形式が正しくありません。");
         } catch (Exception e) {
-            session.setAttribute("errorMessage", "却下の処理中にエラーが発生しました。");
+            System.err.println("Error in handleReject: " + e.getMessage());
+            e.printStackTrace();
+            session.setAttribute("errorMessage", "却下の処理中にエラーが発生しました：" + e.getMessage());
         }
     }
 
