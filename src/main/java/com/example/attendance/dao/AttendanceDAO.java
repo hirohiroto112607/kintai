@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,19 +26,36 @@ import com.example.attendance.util.DatabaseUtil;
 public class AttendanceDAO {
 
     /**
+     * 打刻間隔（秒）。この値より前に行われた打刻がある場合、新しい打刻を拒否します。
+     * 必要ならば値を調整してください（デフォルト: 60秒）。
+     */
+    private static final long MIN_INTERVAL_SECONDS = 60;
+
+
+    /**
      * 出勤を記録します。
      * @param userId ユーザーID
      * @return 成功した場合true、失敗した場合false
      */
     public boolean checkIn(String userId) {
+        // 直近の打刻時刻を取得して、MIN_INTERVAL_SECONDS を満たしているか確認
+        LocalDateTime lastAction = getLastActionTime(userId);
+        if (lastAction != null) {
+            long secondsSinceLast = ChronoUnit.SECONDS.between(lastAction, LocalDateTime.now());
+            if (secondsSinceLast < MIN_INTERVAL_SECONDS) {
+                // インターバル不足のため拒否
+                return false;
+            }
+        }
+
         String sql = "INSERT INTO attendance (user_id, check_in_time) VALUES (?, ?)";
-        
+
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
+
             stmt.setString(1, userId);
             stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-            
+
             int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
         } catch (SQLException e) {
@@ -52,23 +70,56 @@ public class AttendanceDAO {
      * @return 成功した場合true、失敗した場合false
      */
     public boolean checkOut(String userId) {
+        // 直近の打刻時刻を取得して、MIN_INTERVAL_SECONDS を満たしているか確認
+        LocalDateTime lastAction = getLastActionTime(userId);
+        if (lastAction != null) {
+            long secondsSinceLast = ChronoUnit.SECONDS.between(lastAction, LocalDateTime.now());
+            if (secondsSinceLast < MIN_INTERVAL_SECONDS) {
+                // インターバル不足のため拒否
+                return false;
+            }
+        }
+
         String sql = "UPDATE attendance SET check_out_time = ? " +
                     "WHERE user_id = ? AND check_out_time IS NULL " +
                     "AND id = (SELECT id FROM attendance WHERE user_id = ? AND check_out_time IS NULL " +
                     "ORDER BY check_in_time DESC LIMIT 1)";
-        
+
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
+
             stmt.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()));
             stmt.setString(2, userId);
             stmt.setString(3, userId);
-            
+
             int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to check out for user: " + userId, e);
         }
+    }
+
+    /**
+     * ユーザーの直近の打刻（出勤または退勤）の時刻を返します。履歴がなければnull。
+     */
+    private LocalDateTime getLastActionTime(String userId) {
+        String sql = "SELECT GREATEST(MAX(check_in_time), MAX(check_out_time)) as last_time FROM attendance WHERE user_id = ?";
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, userId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Timestamp t = rs.getTimestamp("last_time");
+                    if (t != null) {
+                        return t.toLocalDateTime();
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to get last action time for user: " + userId, e);
+        }
+        return null;
     }
 
     /**
