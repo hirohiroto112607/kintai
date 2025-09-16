@@ -101,7 +101,7 @@
         let detectionCount = 0;
         let consecutiveMatches = 0;  // 連続マッチ回数
         let lastMatchedUser = null;  // 最後にマッチしたユーザー
-        const REQUIRED_CONSECUTIVE_MATCHES = 3; // 認証に必要な連続マッチ回数
+        const REQUIRED_CONSECUTIVE_MATCHES = 2; // 認証に必要な連続マッチ回数
         
         // ユーザー名マッピング: uniqueLabel -> originalUsername
         const usernameMapping = {};
