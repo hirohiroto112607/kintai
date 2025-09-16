@@ -1,20 +1,23 @@
 
+/* 基本スタイル */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', 'Meiryo', 'Hiragino Kaku Gothic ProN', sans-serif;
     margin: 0;
-    padding: 20px;
+    padding: 0; /* bodyのpaddingは0に */
     background-color: #eef2f7;
     color: #333;
     line-height: 1.6;
 }
 
 .container {
-    max-width: 960px;
-    margin: 30px auto;
+    width: 95%; /* 幅を%指定に */
+    max-width: 1200px; /* 最大幅を設定 */
+    margin: 20px auto;
     background-color: #ffffff;
-    padding: 30px;
+    padding: 20px;
     border-radius: 10px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box; /* paddingを含めて計算 */
 }
 
 h1, h2, h3 {
@@ -22,10 +25,8 @@ h1, h2, h3 {
     margin-bottom: 20px;
 }
 
-h1 { text-align: center; font-size: 2.2em; }
-h2 { margin-top: 40px; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
-
-form p { margin-bottom: 20px; }
+h1 { text-align: center; font-size: 2em; }
+h2 { margin-top: 30px; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; font-size: 1.5em; }
 
 label {
     display: block;
@@ -38,7 +39,8 @@ input[type="text"],
 input[type="password"],
 input[type="datetime-local"],
 input[type="date"],
-select {
+select,
+textarea {
     width: 100%;
     padding: 12px;
     border: 1px solid #ccc;
@@ -48,28 +50,33 @@ select {
     transition: border-color 0.3s ease;
 }
 
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
     border-color: #007bff;
     outline: none;
 }
 
 .button-group {
-    text-align: center;
+    display: flex; /* Flexboxを利用 */
+    flex-wrap: wrap; /* 折り返しを許可 */
+    justify-content: center; /* 中央揃え */
+    gap: 10px; /* ボタン間の隙間 */
     margin-top: 30px;
 }
 
 .button, input[type="submit"] {
     background-color: #007bff;
     color: white;
-    padding: 12px 25px;
+    padding: 12px 20px;
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 1.1em;
+    font-size: 1em;
     transition: background-color 0.3s ease, transform 0.2s ease;
     display: inline-block;
-    margin: 0 5px;
     text-decoration: none;
+    text-align: center;
+    flex-grow: 1; /* ボタンが均等に伸びる */
+    min-width: 120px; /* 最小幅 */
 }
 
 .button:hover, input[type="submit"]:hover {
@@ -82,37 +89,44 @@ input:focus, select:focus {
 .button.danger { background-color: #dc3545; }
 .button.danger:hover { background-color: #c82333; }
 
+.error-message, .success-message {
+    padding: 15px;
+    border-radius: 5px;
+    text-align: center;
+    margin: 20px 0;
+}
+
 .error-message {
     color: #dc3545;
     background-color: #f8d7da;
     border: 1px solid #f5c6cb;
-    padding: 10px;
-    border-radius: 5px;
-    text-align: center;
-    margin-top: 20px;
 }
 
 .success-message {
     color: #155724;
     background-color: #d4edda;
     border: 1px solid #c3e6cb;
-    padding: 15px;
-    border-radius: 5px;
-    text-align: center;
+}
+
+/* テーブルのレスポンシブ対応 */
+.table-wrapper {
+    overflow-x: auto; /* 横スクロールを可能に */
     margin-top: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-radius: 8px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    min-width: 600px; /* テーブルの最小幅 */
 }
 
 th, td {
     border: 1px solid #e0e0e0;
     padding: 12px 15px;
     text-align: left;
+    white-space: nowrap; /* セル内での改行を防ぐ */
 }
 
 th {
@@ -123,25 +137,28 @@ th {
 tr:nth-child(even) { background-color: #f9f9f9; }
 tr:hover { background-color: #f1f1f1; }
 
-.table-actions { display: flex; gap: 5px; flex-wrap: wrap; }
-.table-actions .button, .table-actions input[type="submit"] { padding: 5px 10px; font-size: 0.9em; margin: 0; }
+.table-actions { display: flex; gap: 5px; flex-wrap: nowrap; }
+.table-actions .button, .table-actions input[type="submit"] { padding: 5px 10px; font-size: 0.9em; }
 
+/* フォームのレスポンシブ対応 */
 .filter-form {
     display: flex;
+    flex-direction: column; /* 縦並びに変更 */
     gap: 15px;
     margin-bottom: 20px;
-    align-items: flex-end;
-    flex-wrap: wrap;
     padding: 20px;
     background-color: #f8f9fa;
     border-radius: 8px;
 }
 
+.filter-form > div {
+    width: 100%;
+}
+
 .user-form {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 1fr; /* 1カラムレイアウトに */
     gap: 15px;
-    align-items: center;
 }
 
 .main-nav {
@@ -149,4 +166,75 @@ tr:hover { background-color: #f1f1f1; }
     margin-bottom: 30px;
     padding-bottom: 20px;
     border-bottom: 1px solid #ddd;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
 }
+
+/* --- Media Queries --- */
+
+/* タブレット (768px以上) */
+@media (min-width: 768px) {
+    .container {
+        padding: 30px;
+    }
+
+    h1 { font-size: 2.2em; }
+    h2 { font-size: 1.8em; }
+
+    .filter-form {
+        flex-direction: row; /* 横並びに */
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .filter-form > div {
+        width: auto;
+        flex-grow: 1;
+    }
+
+    .filter-form .button {
+        flex-grow: 0;
+    }
+
+    .user-form {
+        grid-template-columns: 150px 1fr; /* ラベルと入力欄を2カラムに */
+        align-items: center;
+    }
+
+    .button, input[type="submit"] {
+        flex-grow: 0; /* ボタンの幅をコンテンツに合わせる */
+    }
+}
+
+/* 小さなモバイルデバイス (480px以下) */
+@media (max-width: 480px) {
+    body {
+        padding: 0;
+    }
+    .container {
+        padding: 15px;
+        margin: 0;
+        width: 100%;
+        border-radius: 0;
+    }
+
+    h1 { font-size: 1.8em; }
+    h2 { font-size: 1.3em; }
+
+    .button, input[type="submit"] {
+        padding: 12px 15px;
+        font-size: 1em;
+        width: 100%; /* ボタンを全幅に */
+    }
+
+    .button-group {
+        flex-direction: column; /* ボタンを縦に並べる */
+    }
+
+    th, td {
+        padding: 8px 10px;
+    }
+}
+

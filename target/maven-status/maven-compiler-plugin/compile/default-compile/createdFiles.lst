@@ -6,6 +6,7 @@ com/example/attendance/dto/Attendance.class
 com/example/attendance/dto/LeaveRequest.class
 com/example/attendance/controller/UserServlet.class
 com/example/attendance/controller/PasskeyRegistrationFinishServlet.class
+com/example/attendance/controller/FaceAttendanceServlet.class
 com/example/attendance/controller/LoginServlet.class
 com/example/attendance/controller/FaceManagementServlet.class
 com/example/attendance/controller/QRCodeServlet.class

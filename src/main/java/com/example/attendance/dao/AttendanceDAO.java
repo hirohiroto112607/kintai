@@ -29,7 +29,7 @@ public class AttendanceDAO {
      * 打刻間隔（秒）。この値より前に行われた打刻がある場合、新しい打刻を拒否します。
      * 必要ならば値を調整してください（デフォルト: 60秒）。
      */
-    private static final long MIN_INTERVAL_SECONDS = 60;
+    private static final long MIN_INTERVAL_SECONDS = 1;
 
 
     /**
