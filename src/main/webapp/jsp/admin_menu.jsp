@@ -44,6 +44,7 @@
     </form>
 
     <h3>詳細勤怠履歴</h3>
+    <div class="table-wrapper">
     <table>
         <thead>
         <tr>
@@ -89,6 +90,7 @@
         </c:if>
         </tbody>
     </table>
+    </div>
 
     <!-- ページネーション -->
     <c:if test="${totalPages > 1}">

@@ -21,6 +21,7 @@
     <jsp:include page="employee_nav.jsp" flush="true" />
 
     <h2>あなたの勤怠履歴</h2>
+    <div class="table-wrapper">
     <table>
         <thead>
         <tr>
@@ -54,6 +55,7 @@
         </c:if>
         </tbody>
     </table>
+    </div>
 
     <!-- ページネーション -->
     <c:if test="${totalPages > 1}">

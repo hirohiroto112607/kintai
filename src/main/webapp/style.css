@@ -1,11 +1,24 @@
 /* 基本スタイル */
 body {
-    font-family: 'Segoe UI', 'Meiryo', 'Hiragino Kaku Gothic ProN', sans-serif;
+    font-family: 'Inter', 'Segoe UI', 'Meiryo', 'Hiragino Kaku Gothic ProN', sans-serif;
     margin: 0;
     padding: 0; /* bodyのpaddingは0に */
-    background-color: #eef2f7;
-    color: #333;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    color: #1e293b;
     line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* アニメーション */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .container {
@@ -14,24 +27,26 @@ body {
     margin: 20px auto;
     background-color: #ffffff;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
     box-sizing: border-box; /* paddingを含めて計算 */
+    border: 1px solid #e2e8f0;
+    animation: fadeInUp 0.6s ease-out;
 }
 
 h1, h2, h3 {
-    color: #2c3e50;
+    color: #1e293b;
     margin-bottom: 20px;
 }
 
-h1 { text-align: center; font-size: 2em; }
-h2 { margin-top: 30px; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; font-size: 1.5em; }
+h1 { text-align: center; font-size: 2em; font-weight: 700; }
+h2 { margin-top: 30px; border-bottom: 3px solid #e2e8f0; padding-bottom: 10px; font-size: 1.5em; font-weight: 600; }
 
 label {
     display: block;
     margin-bottom: 8px;
-    font-weight: bold;
-    color: #555;
+    font-weight: 600;
+    color: #475569;
 }
 
 input[type="text"],
@@ -41,17 +56,20 @@ input[type="date"],
 select,
 textarea {
     width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    padding: 14px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
     font-size: 1em;
+    font-family: inherit;
     box-sizing: border-box;
-    transition: border-color 0.3s ease;
+    transition: all 0.3s ease;
+    background-color: #ffffff;
 }
 
 input:focus, select:focus, textarea:focus {
-    border-color: #007bff;
+    border-color: #6366f1;
     outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .button-group {
@@ -63,30 +81,50 @@ input:focus, select:focus, textarea:focus {
 }
 
 .button, input[type="submit"] {
-    background-color: #007bff;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     color: white;
     padding: 12px 20px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 1em;
-    transition: background-color 0.3s ease, transform 0.2s ease;
+    font-weight: 600;
+    transition: all 0.3s ease;
     display: inline-block;
     text-decoration: none;
     text-align: center;
     flex-grow: 1; /* ボタンが均等に伸びる */
     min-width: 120px; /* 最小幅 */
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.button::before, input[type="submit"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.button:hover::before, input[type="submit"]:hover::before {
+    left: 100%;
 }
 
 .button:hover, input[type="submit"]:hover {
-    background-color: #0056b3;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
-.button.secondary { background-color: #6c757d; }
-.button.secondary:hover { background-color: #5a6268; }
-.button.danger { background-color: #dc3545; }
-.button.danger:hover { background-color: #c82333; }
+.button.secondary { background: linear-gradient(135deg, #64748b 0%, #475569 100%); box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3); }
+.button.secondary:hover { background: linear-gradient(135deg, #475569 0%, #334155 100%); box-shadow: 0 6px 20px rgba(100, 116, 139, 0.4); }
+.button.danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+.button.danger:hover { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4); }
 
 .error-message, .success-message {
     padding: 15px;
@@ -111,33 +149,38 @@ input:focus, select:focus, textarea:focus {
 .table-wrapper {
     overflow-x: auto; /* 横スクロールを可能に */
     margin-top: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     min-width: 600px; /* テーブルの最小幅 */
+    font-size: 0.95em;
 }
 
 th, td {
-    border: 1px solid #e0e0e0;
-    padding: 12px 15px;
+    border: 1px solid #e2e8f0;
+    padding: 14px 16px;
     text-align: left;
     white-space: nowrap; /* セル内での改行を防ぐ */
+    font-size: 0.95em;
 }
 
 th {
-    background-color: #f2f2f2;
-    font-weight: bold;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    font-weight: 600;
+    color: #334155;
 }
 
-tr:nth-child(even) { background-color: #f9f9f9; }
-tr:hover { background-color: #f1f1f1; }
+tr:nth-child(even) { background-color: #f8fafc; }
+tr:hover { background-color: #f1f5f9; }
 
 .table-actions { display: flex; gap: 5px; flex-wrap: nowrap; }
-.table-actions .button, .table-actions input[type="submit"] { padding: 5px 10px; font-size: 0.9em; }
+.table-actions .button, .table-actions input[type="submit"] { padding: 6px 12px; font-size: 0.85em; min-width: 60px; }
 
 /* フォームのレスポンシブ対応 */
 .filter-form {
@@ -146,8 +189,9 @@ tr:hover { background-color: #f1f1f1; }
     gap: 15px;
     margin-bottom: 20px;
     padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
 }
 
 .filter-form > div {
@@ -164,7 +208,7 @@ tr:hover { background-color: #f1f1f1; }
     text-align: center;
     margin-bottom: 30px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 2px solid #e2e8f0;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -204,6 +248,7 @@ tr:hover { background-color: #f1f1f1; }
 
     .button, input[type="submit"] {
         flex-grow: 0; /* ボタンの幅をコンテンツに合わせる */
+        min-width: 140px;
     }
 }
 
@@ -226,6 +271,7 @@ tr:hover { background-color: #f1f1f1; }
         padding: 12px 15px;
         font-size: 1em;
         width: 100%; /* ボタンを全幅に */
+        min-width: auto;
     }
 
     .button-group {
@@ -248,38 +294,47 @@ tr:hover { background-color: #f1f1f1; }
 }
 
 .pagination .button {
-    padding: 8px 12px;
+    padding: 10px 16px;
     font-size: 0.9em;
+    min-width: 80px;
+    font-weight: 600;
 }
 
 .page-link {
     display: inline-block;
-    padding: 8px 12px;
+    padding: 10px 16px;
     text-decoration: none;
-    color: #007bff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    transition: background-color 0.3s ease;
+    color: #6366f1;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    background-color: #ffffff;
+    font-weight: 500;
 }
 
 .page-link:hover {
-    background-color: #f8f9fa;
+    background-color: #f8fafc;
+    border-color: #6366f1;
+    color: #4f46e5;
+    transform: translateY(-1px);
 }
 
 .current-page {
     display: inline-block;
-    padding: 8px 12px;
-    background-color: #007bff;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     color: white;
-    border: 1px solid #007bff;
-    border-radius: 4px;
-    font-weight: bold;
+    border: 2px solid #6366f1;
+    border-radius: 8px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 .page-info {
     text-align: center;
     margin-top: 10px;
-    color: #666;
+    color: #64748b;
     font-size: 0.9em;
+    font-weight: 500;
 }
 

@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -262,9 +263,9 @@ public class AttendanceServlet extends HttpServlet {
     private void handleAddManual(HttpServletRequest req, HttpSession session) {
         try {
             String userId = req.getParameter("userId");
-            LocalDateTime checkIn = LocalDateTime.parse(req.getParameter("checkInTime"));
+            LocalDateTime checkIn = LocalDateTime.parse(req.getParameter("checkInTime")).truncatedTo(ChronoUnit.SECONDS);
             String checkOutStr = req.getParameter("checkOutTime");
-            LocalDateTime checkOut = (checkOutStr != null && !checkOutStr.isEmpty()) ? LocalDateTime.parse(checkOutStr)
+            LocalDateTime checkOut = (checkOutStr != null && !checkOutStr.isEmpty()) ? LocalDateTime.parse(checkOutStr).truncatedTo(ChronoUnit.SECONDS)
                     : null;
             attendanceDAO.addManualAttendance(userId, checkIn, checkOut);
             session.setAttribute("successMessage", "勤怠記録を手動で追加しました。");
@@ -276,9 +277,9 @@ public class AttendanceServlet extends HttpServlet {
     private void handleDeleteManual(HttpServletRequest req, HttpSession session) {
         try {
             String userId = req.getParameter("userId");
-            LocalDateTime checkIn = LocalDateTime.parse(req.getParameter("checkInTime"));
+            LocalDateTime checkIn = LocalDateTime.parse(req.getParameter("checkInTime")).truncatedTo(ChronoUnit.SECONDS);
             String checkOutStr = req.getParameter("checkOutTime");
-            LocalDateTime checkOut = (checkOutStr != null && !checkOutStr.isEmpty()) ? LocalDateTime.parse(checkOutStr)
+            LocalDateTime checkOut = (checkOutStr != null && !checkOutStr.isEmpty()) ? LocalDateTime.parse(checkOutStr).truncatedTo(ChronoUnit.SECONDS)
                     : null;
 
             if (attendanceDAO.deleteManualAttendance(userId, checkIn, checkOut)) {
@@ -293,7 +294,7 @@ public class AttendanceServlet extends HttpServlet {
 
     private void getAttendanceStatus(HttpServletRequest req, HttpServletResponse resp, User user) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
-        
+
         // デバッグ情報をログに出力
         logger.debug("=== AttendanceServlet.getAttendanceStatus ===");
         logger.debug("User: {}", user != null ? user.getUsername() : "null");
@@ -303,7 +304,7 @@ public class AttendanceServlet extends HttpServlet {
         logger.debug("Content Type: {}", req.getContentType());
         logger.debug("Accept Header: {}", req.getHeader("Accept"));
         logger.debug("X-Requested-With: {}", req.getHeader("X-Requested-With"));
-        
+
         if (user == null) {
             logger.error("Error: User is null in getAttendanceStatus");
             ObjectMapper mapper = new ObjectMapper();
@@ -314,40 +315,84 @@ public class AttendanceServlet extends HttpServlet {
             resp.getWriter().write(mapper.writeValueAsString(response));
             return;
         }
-        
+
         try {
             // 今日の最新の勤怠記録を取得
             List<Attendance> todayRecords = attendanceDAO.findByUserIdAndDate(user.getUsername(), LocalDate.now());
-            
+
             String status = "out"; // デフォルトは退勤状態
             String lastActivity = null;
-            
+            double todayHours = 0.0;
+            double weeklyHours = 0.0;
+            double weeklyAverage = 0.0;
+
             if (!todayRecords.isEmpty()) {
                 // 最新の記録を取得
                 Attendance latestRecord = todayRecords.get(todayRecords.size() - 1);
-                
+
                 if (latestRecord.getCheckOutTime() == null) {
                     // 退勤記録がない場合は出勤中
                     status = "in";
                     lastActivity = "出勤: " + latestRecord.getCheckInTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+                    // 今日の勤務時間: 出勤時刻から現在時刻まで
+                    todayHours = ChronoUnit.MINUTES.between(latestRecord.getCheckInTime(), LocalDateTime.now()) / 60.0;
                 } else {
                     // 退勤記録がある場合は退勤状態
                     status = "out";
                     lastActivity = "退勤: " + latestRecord.getCheckOutTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+                    // 今日の勤務時間: 出勤～退勤の時間
+                    todayHours = ChronoUnit.MINUTES.between(latestRecord.getCheckInTime(), latestRecord.getCheckOutTime()) / 60.0;
                 }
             }
-            
+
+            // 週次勤務時間の計算
+            LocalDate weekStart = LocalDate.now().minusDays(LocalDate.now().getDayOfWeek().getValue() - 1); // 月曜日を開始日とする
+            LocalDate weekEnd = weekStart.plusDays(6);
+
+            List<Attendance> weeklyRecords = attendanceDAO.findFilteredRecords(user.getUsername(), weekStart, weekEnd);
+            int workingDays = 0;
+
+            for (Attendance record : weeklyRecords) {
+                if (record.getCheckOutTime() != null) {
+                    // 退勤済みの記録のみカウント
+                    double hours = ChronoUnit.MINUTES.between(record.getCheckInTime(), record.getCheckOutTime()) / 60.0;
+                    weeklyHours += hours;
+                    workingDays++;
+                } else if (record.getCheckInTime().toLocalDate().isBefore(LocalDate.now())) {
+                    // 過去日の未退勤記録は無視（異常データ）
+                    continue;
+                } else if (record.getCheckInTime().toLocalDate().isEqual(LocalDate.now())) {
+                    // 今日の未退勤記録は現在の勤務時間としてカウント
+                    double hours = ChronoUnit.MINUTES.between(record.getCheckInTime(), LocalDateTime.now()) / 60.0;
+                    weeklyHours += hours;
+                    workingDays++;
+                }
+            }
+
+            // 週次平均の計算
+            if (workingDays > 0) {
+                weeklyAverage = weeklyHours / workingDays;
+            }
+
+            // 小数点第1位まで丸める
+            todayHours = Math.round(todayHours * 10.0) / 10.0;
+            weeklyHours = Math.round(weeklyHours * 10.0) / 10.0;
+            weeklyAverage = Math.round(weeklyAverage * 10.0) / 10.0;
+
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> response = Map.of(
                 "success", true,
                 "status", status,
-                "lastActivity", lastActivity != null ? lastActivity : "本日の記録なし"
+                "lastActivity", lastActivity != null ? lastActivity : "本日の記録なし",
+                "todayHours", todayHours,
+                "weeklyHours", weeklyHours,
+                "weeklyAverage", weeklyAverage
             );
-            
+
             String jsonResponse = mapper.writeValueAsString(response);
             logger.debug("JSON Response: {}", jsonResponse);
             resp.getWriter().write(jsonResponse);
-            
+
         } catch (Exception e) {
             logger.error("Error in getAttendanceStatus: {}", e.getMessage());
             logger.error("Exception class: {}", e.getClass().getName());
@@ -430,7 +475,7 @@ public class AttendanceServlet extends HttpServlet {
             Map<String, Object> response = Map.of(
                 "success", true,
                 "action", isCheckIn ? "check_in" : "check_out",
-                "timestamp", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                "timestamp", LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
                 "targetUsername", targetUsername
             );
             

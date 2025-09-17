@@ -53,7 +53,7 @@ public class AttendanceDAO {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, userId);
-            stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)));
 
             int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
@@ -87,7 +87,7 @@ public class AttendanceDAO {
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)));
             stmt.setString(2, userId);
             stmt.setString(3, userId);
 
@@ -111,7 +111,7 @@ public class AttendanceDAO {
                 if (rs.next()) {
                     Timestamp t = rs.getTimestamp("last_time");
                     if (t != null) {
-                        return t.toLocalDateTime();
+                        return t.toLocalDateTime().truncatedTo(ChronoUnit.SECONDS);
                     }
                 }
             }
@@ -164,11 +164,11 @@ public class AttendanceDAO {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     Attendance attendance = new Attendance(rs.getString("user_id"));
-                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     
                     Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
                     if (checkOutTimestamp != null) {
-                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     }
                     
                     attendances.add(attendance);
@@ -203,11 +203,11 @@ public class AttendanceDAO {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     Attendance attendance = new Attendance(rs.getString("user_id"));
-                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     
                     Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
                     if (checkOutTimestamp != null) {
-                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     }
                     
                     attendances.add(attendance);
@@ -265,11 +265,11 @@ public class AttendanceDAO {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     Attendance attendance = new Attendance(rs.getString("user_id"));
-                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     
                     Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
                     if (checkOutTimestamp != null) {
-                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     }
                     
                     attendances.add(attendance);
@@ -297,11 +297,11 @@ public class AttendanceDAO {
             
             while (rs.next()) {
                 Attendance attendance = new Attendance(rs.getString("user_id"));
-                attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                 
                 Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
                 if (checkOutTimestamp != null) {
-                    attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                    attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                 }
                 
                 attendances.add(attendance);
@@ -356,11 +356,11 @@ public class AttendanceDAO {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     Attendance attendance = new Attendance(rs.getString("user_id"));
-                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     
                     Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
                     if (checkOutTimestamp != null) {
-                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     }
                     
                     attendances.add(attendance);
@@ -421,11 +421,11 @@ public class AttendanceDAO {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     Attendance attendance = new Attendance(rs.getString("user_id"));
-                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     
                     Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
                     if (checkOutTimestamp != null) {
-                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime().truncatedTo(ChronoUnit.SECONDS));
                     }
                     
                     attendances.add(attendance);
