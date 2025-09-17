@@ -1,4 +1,3 @@
-
 package com.example.attendance.dao;
 
 import java.sql.Connection;
@@ -27,9 +26,9 @@ public class AttendanceDAO {
 
     /**
      * 打刻間隔（秒）。この値より前に行われた打刻がある場合、新しい打刻を拒否します。
-     * 必要ならば値を調整してください（デフォルト: 60秒）。
+     * 必要ならば値を調整してください（デフォルト: 5秒）。
      */
-    private static final long MIN_INTERVAL_SECONDS = 1;
+    private static final long MIN_INTERVAL_SECONDS = 5;
 
 
     /**
@@ -183,6 +182,70 @@ public class AttendanceDAO {
     }
 
     /**
+     * 指定されたユーザーの勤怠履歴をページングで取得します。
+     * @param userId ユーザーID
+     * @param page ページ番号 (1から始まる)
+     * @param pageSize 1ページあたりの件数
+     * @return 勤怠記録のリスト
+     */
+    public List<Attendance> findByUserIdWithPagination(String userId, int page, int pageSize) {
+        List<Attendance> attendances = new ArrayList<>();
+        String sql = "SELECT id, user_id, check_in_time, check_out_time FROM attendance " +
+                    "WHERE user_id = ? ORDER BY check_in_time DESC LIMIT ? OFFSET ?";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, userId);
+            stmt.setInt(2, pageSize);
+            stmt.setInt(3, (page - 1) * pageSize);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Attendance attendance = new Attendance(rs.getString("user_id"));
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    
+                    Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
+                    if (checkOutTimestamp != null) {
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                    }
+                    
+                    attendances.add(attendance);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find attendance records for user: " + userId + " with pagination", e);
+        }
+        
+        return attendances;
+    }
+
+    /**
+     * 指定されたユーザーの勤怠記録の総件数を取得します。
+     * @param userId ユーザーID
+     * @return 総件数
+     */
+    public int getTotalCountByUserId(String userId) {
+        String sql = "SELECT COUNT(*) as total FROM attendance WHERE user_id = ?";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, userId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("total");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to get total count for user: " + userId, e);
+        }
+        
+        return 0;
+    }
+
+    /**
      * 指定されたユーザーの指定日の勤怠履歴を取得します。
      * @param userId ユーザーID
      * @param date 検索対象の日付
@@ -308,6 +371,120 @@ public class AttendanceDAO {
         }
         
         return attendances;
+    }
+
+    /**
+     * 指定された条件で勤怠履歴を絞り込み検索し、ページングします。
+     * @param userId ユーザーID (nullまたは空文字の場合は全ユーザー)
+     * @param startDate 開始日 (nullの場合は指定なし)
+     * @param endDate 終了日 (nullの場合は指定なし)
+     * @param page ページ番号 (1から始まる)
+     * @param pageSize 1ページあたりの件数
+     * @return 絞り込まれた勤怠記録のリスト
+     */
+    public List<Attendance> findFilteredRecordsWithPagination(String userId, LocalDate startDate, LocalDate endDate, int page, int pageSize) {
+        List<Attendance> attendances = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT id, user_id, check_in_time, check_out_time FROM attendance WHERE 1=1");
+        List<Object> parameters = new ArrayList<>();
+        
+        if (userId != null && !userId.isEmpty()) {
+            sql.append(" AND user_id = ?");
+            parameters.add(userId);
+        }
+        
+        if (startDate != null) {
+            sql.append(" AND DATE(check_in_time) >= ?");
+            parameters.add(Date.valueOf(startDate));
+        }
+        
+        if (endDate != null) {
+            sql.append(" AND DATE(check_in_time) <= ?");
+            parameters.add(Date.valueOf(endDate));
+        }
+        
+        sql.append(" ORDER BY check_in_time DESC LIMIT ? OFFSET ?");
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            
+            for (int i = 0; i < parameters.size(); i++) {
+                if (parameters.get(i) instanceof String) {
+                    stmt.setString(i + 1, (String) parameters.get(i));
+                } else if (parameters.get(i) instanceof Date) {
+                    stmt.setDate(i + 1, (Date) parameters.get(i));
+                }
+            }
+            
+            stmt.setInt(parameters.size() + 1, pageSize);
+            stmt.setInt(parameters.size() + 2, (page - 1) * pageSize);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Attendance attendance = new Attendance(rs.getString("user_id"));
+                    attendance.setCheckInTime(rs.getTimestamp("check_in_time").toLocalDateTime());
+                    
+                    Timestamp checkOutTimestamp = rs.getTimestamp("check_out_time");
+                    if (checkOutTimestamp != null) {
+                        attendance.setCheckOutTime(checkOutTimestamp.toLocalDateTime());
+                    }
+                    
+                    attendances.add(attendance);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find filtered attendance records with pagination", e);
+        }
+        
+        return attendances;
+    }
+
+    /**
+     * 指定された条件で勤怠記録の総件数を取得します。
+     * @param userId ユーザーID (nullまたは空文字の場合は全ユーザー)
+     * @param startDate 開始日 (nullの場合は指定なし)
+     * @param endDate 終了日 (nullの場合は指定なし)
+     * @return 総件数
+     */
+    public int getFilteredTotalCount(String userId, LocalDate startDate, LocalDate endDate) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) as total FROM attendance WHERE 1=1");
+        List<Object> parameters = new ArrayList<>();
+        
+        if (userId != null && !userId.isEmpty()) {
+            sql.append(" AND user_id = ?");
+            parameters.add(userId);
+        }
+        
+        if (startDate != null) {
+            sql.append(" AND DATE(check_in_time) >= ?");
+            parameters.add(Date.valueOf(startDate));
+        }
+        
+        if (endDate != null) {
+            sql.append(" AND DATE(check_in_time) <= ?");
+            parameters.add(Date.valueOf(endDate));
+        }
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            
+            for (int i = 0; i < parameters.size(); i++) {
+                if (parameters.get(i) instanceof String) {
+                    stmt.setString(i + 1, (String) parameters.get(i));
+                } else if (parameters.get(i) instanceof Date) {
+                    stmt.setDate(i + 1, (Date) parameters.get(i));
+                }
+            }
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("total");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to get filtered total count", e);
+        }
+        
+        return 0;
     }
 
     /**

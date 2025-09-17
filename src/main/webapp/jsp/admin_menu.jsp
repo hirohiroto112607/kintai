@@ -90,6 +90,31 @@
         </tbody>
     </table>
 
+    <!-- ページネーション -->
+    <c:if test="${totalPages > 1}">
+        <div class="pagination">
+            <c:if test="${currentPage > 1}">
+                <a href="<c:url value='/attendance?filterUserId=${param.filterUserId}&startDate=${param.startDate}&endDate=${param.endDate}&page=${currentPage - 1}'/>" class="button">前へ</a>
+            </c:if>
+            
+            <c:forEach var="i" begin="1" end="${totalPages}">
+                <c:choose>
+                    <c:when test="${i == currentPage}">
+                        <span class="current-page">${i}</span>
+                    </c:when>
+                    <c:otherwise>
+                        <a href="<c:url value='/attendance?filterUserId=${param.filterUserId}&startDate=${param.startDate}&endDate=${param.endDate}&page=${i}'/>" class="page-link">${i}</a>
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>
+            
+            <c:if test="${currentPage < totalPages}">
+                <a href="<c:url value='/attendance?filterUserId=${param.filterUserId}&startDate=${param.startDate}&endDate=${param.endDate}&page=${currentPage + 1}'/>" class="button">次へ</a>
+            </c:if>
+        </div>
+        <p class="page-info">全 ${totalCount} 件中 ${(currentPage - 1) * pageSize + 1} - ${currentPage * pageSize > totalCount ? totalCount : currentPage * pageSize} 件を表示</p>
+    </c:if>
+
     <h2>勤怠記録の手動追加</h2>
     <form action="<c:url value='/attendance'/>" method="post">
         <input type="hidden" name="action" value="add_manual">

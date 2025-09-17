@@ -25,7 +25,7 @@
     </c:if>
 
     <h2>ユーザー追加/編集</h2>
-    <form action="<c:url value='/users'/>" method="post" class="user-form">
+    <form action="<c:url value='/users'/>" method="post" class="user-form" onsubmit="return confirm('本当にこのユーザーを${not empty userToEdit ? '更新' : '追加'}しますか？');">
         <input type="hidden" name="action" value="${not empty userToEdit ? 'update' : 'add'}">
         <c:if test="${not empty userToEdit}">
             <input type="hidden" name="username" value="<c:out value="${userToEdit.username}"/>">

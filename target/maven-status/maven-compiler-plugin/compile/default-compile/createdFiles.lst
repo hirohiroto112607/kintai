@@ -8,6 +8,7 @@ com/example/attendance/controller/UserServlet.class
 com/example/attendance/controller/PasskeyRegistrationFinishServlet.class
 com/example/attendance/controller/FaceAttendanceServlet.class
 com/example/attendance/controller/LoginServlet.class
+com/example/test/DatabaseTest.class
 com/example/attendance/controller/FaceManagementServlet.class
 com/example/attendance/controller/QRCodeServlet.class
 com/example/attendance/dao/LeaveRequestRepository.class

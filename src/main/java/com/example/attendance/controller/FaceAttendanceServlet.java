@@ -105,10 +105,13 @@ public class FaceAttendanceServlet extends HttpServlet {
             // 検知されたユーザーが存在するかチェック
             User detectedUser = userDAO.findByUsername(detectedUsername.trim());
             if (detectedUser == null) {
+                logger.warning("顔認証: 検知されたユーザーが存在しません - username: " + detectedUsername.trim());
                 String jsonResponse = "{\"success\": false, \"error\": \"検知されたユーザーが存在しません。\"}";
                 response.getWriter().write(jsonResponse);
                 return;
             }
+
+            logger.info("顔認証: ユーザー検知成功 - username: " + detectedUsername.trim() + ", sessionUser: " + sessionUser.getUsername());
 
             // 現在の出勤状況をチェック
             boolean isCurrentlyCheckedIn = attendanceDAO.isCurrentlyCheckedIn(detectedUsername);
@@ -119,7 +122,7 @@ public class FaceAttendanceServlet extends HttpServlet {
                 boolean success = attendanceDAO.checkOut(detectedUsername);
                 if (success) {
                     String message = sessionUser.getRole().equals("admin") && !sessionUser.getUsername().equals(detectedUsername)
-                                     ? String.format("%sさんの退勤が記録されました。お疲れさまでした！", detectedUser.getUsername())
+                                     ? String.format("%sさんの退勤が記録されました。お疲れさまでした！", detectedUsername)
                                      : "退勤が記録されました。お疲れさまでした！";
                     jsonResponse = String.format("{\"success\": true, \"message\": \"%s\", \"action\": \"checkout\", \"user\": \"%s\"}", message, detectedUser.getUsername());
                 } else {
@@ -161,17 +164,25 @@ public class FaceAttendanceServlet extends HttpServlet {
         response.setContentType("application/json; charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
 
+        logger.info("handleQRAttendance: 開始");
+
         try {
             // セッションからユーザー情報を取得
             User sessionUser = (User) session.getAttribute("user");
             if (sessionUser == null) {
+                logger.warning("handleQRAttendance: セッションが無効");
                 String jsonResponse = "{\"success\": false, \"error\": \"セッションが無効です。再度ログインしてください。\"}";
                 response.getWriter().write(jsonResponse);
                 return;
             }
 
+            logger.info("handleQRAttendance: セッションユーザー - " + sessionUser.getUsername() + " (role: " + sessionUser.getRole() + ")");
+
             String scannedUserId = request.getParameter("userId");
+            logger.info("handleQRAttendance: scannedUserId = '" + scannedUserId + "'");
+
             if (scannedUserId == null || scannedUserId.trim().isEmpty()) {
+                logger.warning("handleQRAttendance: ユーザーIDが指定されていない");
                 String jsonResponse = "{\"success\": false, \"error\": \"ユーザーIDが指定されていません。\"}";
                 response.getWriter().write(jsonResponse);
                 return;

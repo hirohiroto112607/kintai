@@ -38,6 +38,13 @@
             border: 2px solid #ddd;
             border-radius: 8px;
         }
+        #qr-reader {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
         .results-section {
             flex: 1;
             display: flex;
@@ -130,11 +137,19 @@
 
         <div class="camera-section">
             <div class="camera-container">
+                <h3>顔認証カメラ</h3>
                 <video id="video" autoplay muted playsinline></video>
                 <div id="face-overlay" style="position: absolute; top: 0; left: 0; pointer-events: none;"></div>
             </div>
 
             <div class="results-section">
+                <div class="result-card">
+                    <h3>QRコードスキャナー</h3>
+                    <div id="qr-reader"></div>
+                    <div id="qr-instructions" class="status-message status-info">
+                        QRコードをカメラにかざしてください
+                    </div>
+                </div>
                 <div class="result-card">
                     <h3>顔認証結果</h3>
                     <div id="face-status" class="status-message status-info">
@@ -201,12 +216,22 @@
         // ユーザー名マッピング
         const usernameMapping = {};
         labeledFaceDescriptorsJson.forEach(ld => {
-            if (ld.originalUsername) {
+            if (ld.originalUsername && ld.originalUsername.trim() !== '') {
                 usernameMapping[ld.username] = ld.originalUsername;
+                console.log('顔データマッピング: ' + ld.username + ' -> ' + ld.originalUsername);
             } else {
-                usernameMapping[ld.username] = ld.username;
+                // originalUsernameが無効な場合は、usernameからface_index部分を除去して使用
+                let fallbackUsername = ld.username;
+                if (fallbackUsername.includes('_')) {
+                    fallbackUsername = fallbackUsername.split('_')[0];
+                }
+                usernameMapping[ld.username] = fallbackUsername;
+                console.warn('警告: originalUsernameが無効のためフォールバックを使用 - ' + ld.username + ' -> ' + fallbackUsername);
+                updateDebugInfo('警告: originalUsernameが無効のためフォールバックを使用 - ' + ld.username + ' -> ' + fallbackUsername);
             }
         });
+
+        console.log('ユーザー名マッピング完了: ' + Object.keys(usernameMapping).length + '件');
 
         // デバッグ情報更新
         function updateDebugInfo(info) {
@@ -278,23 +303,34 @@
         async function initializeQRScanner() {
             updateDebugInfo('QRコードスキャナー初期化開始');
 
-            html5QrcodeScanner = new Html5Qrcode("video");
+            try {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "qr-reader",
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1.0,
+                        disableFlip: false,
+                        supportedScanTypes: [Html5QrcodeSupportedFormats.QR_CODE]
+                    },
+                    false // verbose
+                );
 
-            // QRコード検知の設定（自動検知）
-            qrDetectionInterval = setInterval(async () => {
-                if (!isProcessingQR) {
-                    try {
-                        const result = await html5QrcodeScanner.scanQrCode(video);
-                        if (result) {
-                            onQRDetected(result);
-                        }
-                    } catch (error) {
-                        // QRコードが見つからない場合は何もしない
-                    }
-                }
-            }, 500);
+                html5QrcodeScanner.render(onQRDetected, onQRError);
+                updateDebugInfo('QRコードスキャナー初期化完了');
+            } catch (error) {
+                updateDebugInfo('QRコードスキャナー初期化エラー: ' + error.message);
+                updateStatus(document.getElementById('qr-instructions'), 'QRコードスキャナーの初期化に失敗しました', 'error');
+            }
+        }
 
-            updateDebugInfo('QRコードスキャナー初期化完了');
+        // QRコードエラーハンドリング
+        function onQRError(error) {
+            // QRコードが見つからない場合は何もしない（通常の動作）
+            if (error && typeof error === 'string' && error.includes('NotFoundException')) {
+                return;
+            }
+            updateDebugInfo('QRコードスキャンエラー: ' + error);
         }
 
         // 顔検知処理

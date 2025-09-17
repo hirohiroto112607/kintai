@@ -178,8 +178,28 @@ public class AttendanceServlet extends HttpServlet {
             req.setAttribute("errorMessage", "日付の形式が不正です。YYYY-MM-DD形式で入力してください。");
         }
 
-        List<Attendance> records = attendanceDAO.findFilteredRecords(filterUserId, startDate, endDate);
+        // ページネーション処理
+        int page = 1;
+        int pageSize = 20;
+        String pageParam = req.getParameter("page");
+        if (pageParam != null && !pageParam.isEmpty()) {
+            try {
+                page = Integer.parseInt(pageParam);
+                if (page < 1) page = 1;
+            } catch (NumberFormatException e) {
+                page = 1;
+            }
+        }
+
+        List<Attendance> records = attendanceDAO.findFilteredRecordsWithPagination(filterUserId, startDate, endDate, page, pageSize);
+        int totalCount = attendanceDAO.getFilteredTotalCount(filterUserId, startDate, endDate);
+        int totalPages = (int) Math.ceil((double) totalCount / pageSize);
+
         req.setAttribute("allAttendanceRecords", records);
+        req.setAttribute("currentPage", page);
+        req.setAttribute("totalPages", totalPages);
+        req.setAttribute("pageSize", pageSize);
+        req.setAttribute("totalCount", totalCount);
 
         // ユーザー毎の合計労働時間
         Map<String, Long> totalHoursByUser = records.stream()
@@ -213,7 +233,29 @@ public class AttendanceServlet extends HttpServlet {
             return;
         }
 
-        req.setAttribute("attendanceRecords", attendanceDAO.findByUserId(user.getUsername()));
+        // ページネーション処理
+        int page = 1;
+        int pageSize = 20;
+        String pageParam = req.getParameter("page");
+        if (pageParam != null && !pageParam.isEmpty()) {
+            try {
+                page = Integer.parseInt(pageParam);
+                if (page < 1) page = 1;
+            } catch (NumberFormatException e) {
+                page = 1;
+            }
+        }
+
+        List<Attendance> attendanceRecords = attendanceDAO.findByUserIdWithPagination(user.getUsername(), page, pageSize);
+        int totalCount = attendanceDAO.getTotalCountByUserId(user.getUsername());
+        int totalPages = (int) Math.ceil((double) totalCount / pageSize);
+
+        req.setAttribute("attendanceRecords", attendanceRecords);
+        req.setAttribute("currentPage", page);
+        req.setAttribute("totalPages", totalPages);
+        req.setAttribute("pageSize", pageSize);
+        req.setAttribute("totalCount", totalCount);
+
         req.getRequestDispatcher("/jsp/employee_menu.jsp").forward(req, resp);
     }
 

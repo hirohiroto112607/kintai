@@ -10,11 +10,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import com.example.attendance.util.DatabaseUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class FaceDataDAO {
+
+    private static final Logger logger = Logger.getLogger(FaceDataDAO.class.getName());
 
     // 新しい顔データを追加（複数登録対応）
     public void saveFaceData(String username, String faceDescriptorJson, InputStream faceImageInputStream, String label) throws SQLException {
@@ -93,23 +96,32 @@ public class FaceDataDAO {
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
+                // usernameがnullまたは空文字の場合はスキップ
+                String originalUsername = rs.getString("username");
+                if (originalUsername == null || originalUsername.trim().isEmpty()) {
+                    logger.warning("無効なusernameを検知しました: nullまたは空文字 - face_index: " + rs.getInt("face_index"));
+                    continue;
+                }
+
                 Map<String, Object> data = new HashMap<>();
                 // ユーザー名にface_indexを含めて一意にする
-                String uniqueLabel = rs.getString("username");
+                String uniqueLabel = originalUsername;
                 int faceIndex = rs.getInt("face_index");
                 String label = rs.getString("label");
-                
+
                 if (faceIndex > 1) {
                     uniqueLabel += "_" + faceIndex; // 例: "user1_2"
                 }
-                
+
                 data.put("username", uniqueLabel);
-                data.put("originalUsername", rs.getString("username")); // 元のユーザー名も保持
+                data.put("originalUsername", originalUsername); // 元のユーザー名も保持
                 data.put("faceIndex", faceIndex);
                 data.put("label", label);
                 data.put("descriptor", objectMapper.readTree(rs.getString("face_descriptor")));
                 results.add(data);
             }
+
+            logger.info("顔データ取得完了: " + results.size() + "件の有効なデータを返却");
         } catch (Exception e) {
             // Handle exception
         }

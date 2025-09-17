@@ -55,6 +55,31 @@
         </tbody>
     </table>
 
+    <!-- ページネーション -->
+    <c:if test="${totalPages > 1}">
+        <div class="pagination">
+            <c:if test="${currentPage > 1}">
+                <a href="<c:url value='/attendance?page=${currentPage - 1}'/>" class="button">前へ</a>
+            </c:if>
+            
+            <c:forEach var="i" begin="1" end="${totalPages}">
+                <c:choose>
+                    <c:when test="${i == currentPage}">
+                        <span class="current-page">${i}</span>
+                    </c:when>
+                    <c:otherwise>
+                        <a href="<c:url value='/attendance?page=${i}'/>" class="page-link">${i}</a>
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>
+            
+            <c:if test="${currentPage < totalPages}">
+                <a href="<c:url value='/attendance?page=${currentPage + 1}'/>" class="button">次へ</a>
+            </c:if>
+        </div>
+        <p class="page-info">全 ${totalCount} 件中 ${(currentPage - 1) * pageSize + 1} - ${currentPage * pageSize > totalCount ? totalCount : currentPage * pageSize} 件を表示</p>
+    </c:if>
+
     <div class="button-group">
         <a href="<c:url value='/logout'/>" class="button secondary">ログアウト</a>
     </div>

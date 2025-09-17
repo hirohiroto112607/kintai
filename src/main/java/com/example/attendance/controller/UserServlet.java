@@ -1,7 +1,7 @@
-
 package com.example.attendance.controller;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 import com.example.attendance.dao.DepartmentDAO;
 import com.example.attendance.dao.UserDAO;
@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpSession;
 public class UserServlet extends HttpServlet {
     private final UserDAO userDAO = new UserDAO();
     private final DepartmentDAO departmentDAO = new DepartmentDAO();
+    private static final Logger logger = Logger.getLogger(UserServlet.class.getName());
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -108,6 +109,11 @@ public class UserServlet extends HttpServlet {
         }
         User newUser = new User(username, UserDAO.hashPassword(password), role, departmentId, true);
         userDAO.addUser(newUser);
+        
+        // Adminによるユーザー追加をログ記録
+        User currentUser = (User) session.getAttribute("user");
+        logger.info("Admin user '" + currentUser.getUsername() + "' added new user '" + username + "' with role '" + role + "'");
+        
         session.setAttribute("successMessage", "ユーザー '" + username + "' を追加しました。");
     }
 
