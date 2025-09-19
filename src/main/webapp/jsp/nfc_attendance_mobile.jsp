@@ -16,6 +16,7 @@
             user-select: none;
             -webkit-touch-callout: none;
             background-color: #f0f0f0; /* 初期灰色 */
+            transition: background-color 420ms cubic-bezier(.2,.9,.2,1);
             font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
         }
 
@@ -68,6 +69,7 @@
             border-radius: 12px;
             display: inline-block;
             min-width: 320px;
+            transition: background 320ms ease, color 320ms ease, transform 280ms cubic-bezier(.2,.9,.2,1), opacity 240ms ease;
         }
 
         /* 戻るボタン */
@@ -99,22 +101,25 @@
             to { transform: rotate(360deg); }
         }
 
-        /* ポートレート時のオーバーレイ */
+        /* ポートレート時のオーバーレイ（注意表示のみ、操作をブロックしない） */
         .portrait-overlay {
             position: absolute;
             inset: 0;
-            background: rgba(0,0,0,0.8);
+            background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0));
             color: #fff;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 20px;
+            display: none; /* デフォルトは非表示。@media で表示するが pointer-events を none にして操作をブロックしない */
+            align-items: flex-start;
+            justify-content: flex-start;
+            text-align: left;
+            padding: 18px;
             z-index: 9999;
+            pointer-events: none; /* タッチを透過させる */
+            opacity: 0;
+            transition: opacity 420ms ease, transform 420ms cubic-bezier(.2,.9,.2,1);
         }
 
         .portrait-overlay .msg {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 700;
         }
 
@@ -126,10 +131,35 @@
             .sensor-guide { width: 120px; height: 120px; }
         }
 
-        /* ポートレート検出 */
+        /* ポートレート検出（表示はするが操作はブロックしない） */
         @media (orientation: portrait) {
-            .portrait-overlay { display: flex; }
+            .portrait-overlay { display: flex; opacity: 1; }
         }
+
+        /* 画面左右のタッチガイド（非ブロッキング） */
+        .mobile-container::before,
+        .mobile-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 36%;
+            pointer-events: none;
+            transition: background 240ms ease, opacity 240ms ease, transform 240ms ease;
+            opacity: 0.06;
+            z-index: 2;
+        }
+        .mobile-container::before { left: 0; background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0)); }
+        .mobile-container::after { right: 0; background: linear-gradient(-90deg, rgba(0,0,0,0.06), rgba(0,0,0,0)); }
+
+        /* タッチ時のハイライト */
+        body.touch-left .mobile-container::before { opacity: 0.18; transform: scaleX(1.02); }
+        body.touch-right .mobile-container::after { opacity: 0.18; transform: scaleX(1.02); }
+
+        /* 状態別の背景色（クラス制御） */
+        body.result-checkin { background-color: #1976D2; }
+        body.result-checkout { background-color: #28A745; }
+        body.scanning { background-color: rgba(25,118,210,0.12); }
 
     </style>
 </head>
@@ -160,11 +190,11 @@
         </div>
     </div>
 
-    <!-- ポートレート時の案内 -->
-    <div class="portrait-overlay" id="portraitOverlay">
+    <!-- ポートレート時の案内（操作は可能、横向き推奨のヒント表示） -->
+    <div class="portrait-overlay" id="portraitOverlay" aria-hidden="true">
         <div>
-            <div class="msg">横向きにしてください</div>
-            <div style="margin-top:12px; font-size:16px; opacity:0.9;">横画面で右下にカードをかざしてください</div>
+            <div class="msg">横向き推奨</div>
+            <div style="margin-top:8px; font-size:14px; opacity:0.95;">横向きで右下にカードをかざすと読み取りやすくなりますが、縦画面でもタップで打刻できます。</div>
         </div>
     </div>
 </div>
@@ -250,6 +280,8 @@
         largeStatus.style.background = 'rgba(0,0,0,0.25)';
         largeStatus.style.color = '#fff';
         largeStatus.textContent = 'スキャン中… カードを右下にかざしてください';
+        // ボディに scanning クラスを付けて背景を変化させる
+        try { document.body.classList.add('scanning'); } catch(e){}
     }
 
     function setStatusResult(action, username, timestamp) {
@@ -269,9 +301,12 @@
         resultTime.textContent = '記録時刻: ' + timestamp;
 
         if (action === 'check_in') {
-            bodyEl.style.backgroundColor = BG_BLUE;
+            // 見た目は CSS クラスで切り替える
+            document.body.classList.remove('scanning');
+            document.body.classList.add('result-checkin');
         } else {
-            bodyEl.style.backgroundColor = BG_GREEN;
+            document.body.classList.remove('scanning');
+            document.body.classList.add('result-checkout');
         }
 
         // 大きなメッセージのスタイル更新
@@ -293,7 +328,8 @@
             ndefController = null;
             scanning = false; // 再度タップで読み取りを開始できるようにフラグを戻す
 
-            bodyEl.style.backgroundColor = BG_GRAY;
+            // クラスをクリアして元に戻す
+            document.body.classList.remove('result-checkin', 'result-checkout', 'scanning', 'touch-left', 'touch-right');
             resultDetail.style.display = 'none';
             largeStatus.textContent = '右下をタップして開始';
             largeStatus.style.background = 'transparent';
@@ -324,6 +360,7 @@
             ndefReader.addEventListener('readingerror', (evt) => {
                 console.error('NFC読み取りエラー', evt);
                 setTemporaryError('NFC読み取りに失敗しました');
+                location.reload();
             });
 
             ndefReader.addEventListener('reading', async (event) => {
@@ -384,10 +421,12 @@
             });
 
             scanning = true;
+            try { document.body.classList.add('scanning'); } catch (e) {}
         } catch (err) {
             console.error('NFCスキャン開始エラー:', err);
             setTemporaryError('NFCスキャンを開始できませんでした');
             scanning = false;
+            try { document.body.classList.remove('scanning'); } catch (e) {}
             ndefReader = null;
             ndefController = null;
         }
@@ -494,24 +533,31 @@
         return mode;
     }
 
-    // タッチイベントの処理
+    // タッチイベントの処理（ポートレートでも動作する）
     function handleTouchStart(event) {
-        // ポートレート時は無効
-        if (window.matchMedia && window.matchMedia("(orientation: portrait)").matches) {
-            const debugResponse = document.getElementById('debugResponse');
-            debugResponse.textContent = 'ポートレートモードではタッチ選択は無効です';
-            return;
-        }
-        
-        event.preventDefault();
-        
-        const touch = event.touches[0] || event.changedTouches[0];
+        // ここではポートレートでも処理を行う。オーバーレイはヒント表示のみで pointer-events:none にしているため
+        // ユーザーには画面を横向き推奨と伝えつつ、タップは受け付ける。
+        try { event.preventDefault(); } catch (e) { /* ignore */ }
+
+        const touch = (event.touches && event.touches[0]) || (event.changedTouches && event.changedTouches[0]) || event;
         const screenWidth = window.innerWidth;
-        const touchX = touch.clientX;
-        
+        const touchX = touch.clientX || (screenWidth / 2);
+
         // タッチ位置でモードを決定
         const mode = getTouchMode(touchX, screenWidth);
-        
+
+        // 左右ハイライトを表示（短時間）
+        try {
+            if (mode === 'check_in') {
+                document.body.classList.add('touch-right');
+                document.body.classList.remove('touch-left');
+            } else {
+                document.body.classList.add('touch-left');
+                document.body.classList.remove('touch-right');
+            }
+            setTimeout(() => { document.body.classList.remove('touch-left', 'touch-right'); }, 420);
+        } catch (e) { console.warn('touch highlight failed', e); }
+
         // 現在の勤務状況を取得してモードチェック
         checkModeAndProceed(mode);
     }
@@ -544,9 +590,9 @@
                 // 出勤中に出勤モードを選択した場合
                 setTemporaryError('既に本日出勤しています。退勤モードを選択してください。');
                 return;
-            } --%>
+            }
             
-            <%-- if (mode === 'check_out' && !isCurrentlyCheckedIn) {
+            if (mode === 'check_out' && !isCurrentlyCheckedIn) {
                 // 退勤済みで退勤モードを選択した場合
                 setTemporaryError('既に本日退勤しています。出勤モードを選択してください。');
                 return;
@@ -590,10 +636,13 @@
     const mobileContainer = document.getElementById('mobileContainer');
     mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
     
-    // クリックイベントも残しておく（タッチ非対応環境用）
+    // クリックイベントも残しておく（タッチ非対応環境用）。ポートレートでもクリックで自動判定開始可能にする
     mobileContainer.addEventListener('click', (e) => {
-        // ポートレート時は無効
-        if (window.matchMedia && window.matchMedia("(orientation: portrait)").matches) return;
+        // 簡易フィードバック（中央タップに相当）
+        try {
+            document.body.classList.add('touch-right');
+            setTimeout(() => { document.body.classList.remove('touch-right'); }, 320);
+        } catch (e) {}
         startScanning(); // 自動判定モード
     });
 

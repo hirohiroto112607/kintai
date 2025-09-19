@@ -11,7 +11,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>勤怠管理システム</h1>
+        <h1>ログイン</h1>
         
         <c:if test="${not empty errorMessage}">
             <p class="error-message">

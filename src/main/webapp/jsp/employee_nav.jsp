@@ -166,4 +166,5 @@
         <a href="<c:url value='/passkey_register.jsp'/>" class="button">パスキーを登録</a>
         <a href="<c:url value='/face/manage'/>" class="button" style="background-color: #e83e8c;">顔データ管理</a>
         <a href="<c:url value='/face/authenticate'/>" class="button" style="background-color: #dc3545;">顔認証テスト</a>
+        <a href="<c:url value='/logout'/>" class="button secondary">ログアウト</a>
 </nav>

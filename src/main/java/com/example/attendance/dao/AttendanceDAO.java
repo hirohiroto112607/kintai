@@ -582,7 +582,11 @@ public class AttendanceDAO {
             
             stmt.setString(1, userId);
             stmt.setTimestamp(2, Timestamp.valueOf(checkIn));
-            stmt.setTimestamp(3, checkOut != null ? Timestamp.valueOf(checkOut) : null);
+            if (checkOut != null) {
+                stmt.setTimestamp(3, Timestamp.valueOf(checkOut));
+            } else {
+                stmt.setNull(3, java.sql.Types.TIMESTAMP);
+            }
             
             stmt.executeUpdate();
         } catch (SQLException e) {
@@ -609,11 +613,20 @@ public class AttendanceDAO {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
             stmt.setTimestamp(1, Timestamp.valueOf(newCheckIn));
-            stmt.setTimestamp(2, newCheckOut != null ? Timestamp.valueOf(newCheckOut) : null);
+            if (newCheckOut != null) {
+                stmt.setTimestamp(2, Timestamp.valueOf(newCheckOut));
+            } else {
+                stmt.setNull(2, java.sql.Types.TIMESTAMP);
+            }
             stmt.setString(3, userId);
             stmt.setTimestamp(4, Timestamp.valueOf(oldCheckIn));
-            stmt.setTimestamp(5, oldCheckOut != null ? Timestamp.valueOf(oldCheckOut) : null);
-            stmt.setTimestamp(6, oldCheckOut != null ? Timestamp.valueOf(oldCheckOut) : null);
+            if (oldCheckOut != null) {
+                stmt.setTimestamp(5, Timestamp.valueOf(oldCheckOut));
+                stmt.setTimestamp(6, Timestamp.valueOf(oldCheckOut));
+            } else {
+                stmt.setNull(5, java.sql.Types.TIMESTAMP);
+                stmt.setNull(6, java.sql.Types.TIMESTAMP);
+            }
             
             int updatedRows = stmt.executeUpdate();
             return updatedRows > 0;
@@ -630,16 +643,21 @@ public class AttendanceDAO {
      * @return 削除が成功した場合はtrue
      */
     public boolean deleteManualAttendance(String userId, LocalDateTime checkIn, LocalDateTime checkOut) {
-        String sql = "DELETE FROM attendance WHERE user_id = ? AND check_in_time = ? AND " +
-                    "(check_out_time = ? OR (check_out_time IS NULL AND ? IS NULL))";
+        String sql;
+        if (checkOut != null) {
+            sql = "DELETE FROM attendance WHERE user_id = ? AND check_in_time = ? AND check_out_time = ?";
+        } else {
+            sql = "DELETE FROM attendance WHERE user_id = ? AND check_in_time = ? AND check_out_time IS NULL";
+        }
         
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
             stmt.setString(1, userId);
             stmt.setTimestamp(2, Timestamp.valueOf(checkIn));
-            stmt.setTimestamp(3, checkOut != null ? Timestamp.valueOf(checkOut) : null);
-            stmt.setTimestamp(4, checkOut != null ? Timestamp.valueOf(checkOut) : null);
+            if (checkOut != null) {
+                stmt.setTimestamp(3, Timestamp.valueOf(checkOut));
+            }
             
             int deletedRows = stmt.executeUpdate();
             return deletedRows > 0;
